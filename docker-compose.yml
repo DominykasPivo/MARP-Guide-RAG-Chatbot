@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  ingestion:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - LOG_LEVEL=INFO
+      - MAX_UPLOAD_SIZE=5MB
+    volumes:
+      - ./services/ingestion/app/data:/app/data
+    restart: unless-stopped
+
+  # Other services can be added here
+  # extraction:
+  #   build:
+  #     context: ./services/extraction
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8001:8000"
+  #   ...

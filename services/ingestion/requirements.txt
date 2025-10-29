@@ -1,0 +1,8 @@
+Flask==2.0.1
+Werkzeug==2.0.3  # had to add this to fix compatibility issues between Flask and Werkzeug (Flash dependency)
+requests==2.26.0
+python-dotenv==0.19.0
+gunicorn==20.1.0
+pydantic==1.8.2
+python-multipart==0.0.5
+psutil==5.9.0
