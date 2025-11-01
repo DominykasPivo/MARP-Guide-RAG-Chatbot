@@ -2,12 +2,39 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 import pika # RabbitMQ client
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g # g is for request context
 from datetime import datetime
 import json   
 import time
+import uuid # for generating correlation IDs
+from functools import wraps # for the decorator
 
 app = Flask(__name__)
+
+class CorrelationIDFilter(logging.Filter):
+    """Filter that injects correlation ID into log records."""
+    def filter(self, record):
+        try:
+            record.correlation_id = getattr(g, 'correlation_id', 'no-correlation-id')
+        except:
+            record.correlation_id = 'no-correlation-id'
+        return True
+
+def with_correlation_id(f):
+    """Decorator that ensures correlation ID is set for the request."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Add request start time for timing
+        request.start_time = time.time()
+        
+        # Set correlation ID
+        correlation_id = request.headers.get('X-Correlation-ID')
+        if not correlation_id:
+            correlation_id = str(uuid.uuid4())
+        g.correlation_id = correlation_id
+        
+        return f(*args, **kwargs)
+    return decorated
 
 # RabbitMQ Configuration
 def setup_rabbitmq():
@@ -23,28 +50,9 @@ def setup_rabbitmq():
             connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
             channel = connection.channel()
             
-            # Declare exchange
-            channel.exchange_declare(
-                exchange='documents',
-                exchange_type='topic',
-                durable=True
-            )
-            
-            # Declare queues with their routing keys
-            queues = {
-                'document.ingestion': ['document.received.*'],
-                'document.extraction': ['document.stored.*'],
-                'document.indexing': ['document.extracted.*']
-            }
-            
-            for queue, routing_keys in queues.items():
-                channel.queue_declare(queue=queue, durable=True)
-                for routing_key in routing_keys:
-                    channel.queue_bind(
-                        exchange='documents',
-                        queue=queue,
-                        routing_key=routing_key
-                    )
+            # Declare queues
+            channel.queue_declare(queue='document_ingestion', durable=True)
+            channel.queue_declare(queue='extraction_queue', durable=True)
             
             return connection, channel
             
@@ -57,35 +65,68 @@ def setup_rabbitmq():
                 raise error
 
 # Configure logging
+class JsonFormatter(logging.Formatter):
+    """Custom JSON formatter for structured logging"""
+    def __init__(self):
+        super().__init__()
+        self.default_keys = ['timestamp', 'level', 'correlation_id', 'message', 'logger']
+
+    def format(self, record):
+        log_data = {
+            'timestamp': self.formatTime(record, datefmt='%Y-%m-%d %H:%M:%S'),
+            'level': record.levelname,
+            'correlation_id': getattr(record, 'correlation_id', 'no-correlation-id'),
+            'message': record.getMessage(),
+            'logger': record.name
+        }
+
+        # Add extra fields from the record
+        for key, value in record.__dict__.items():
+            if key not in self.default_keys and not key.startswith('_'):
+                log_data[key] = value
+
+        # Add exception info if present
+        if record.exc_info:
+            log_data['exception'] = self.formatException(record.exc_info)
+
+        return json.dumps(log_data)
+
 def setup_logger():
     # Create logs directory if it doesn't exist
     log_dir = '/app/logs'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
-    # Set up logging format
-    formatter = logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+    # Set up formatters for the human eye stdout 
+    json_formatter = JsonFormatter()
+    human_formatter = logging.Formatter(
+        '\033[32m%(asctime)s\033[0m [\033[1m%(levelname)s\033[0m] \033[36m%(correlation_id)s\033[0m - %(message)s'
     )
 
-    # File handler for all logs
+    # File handler for all logs (JSON format for machine processing)
     file_handler = RotatingFileHandler(
         f'{log_dir}/ingestion_service.log',
         maxBytes=10485760,  # 10MB
         backupCount=5
     )
-    file_handler.setFormatter(formatter)
+    file_handler.setFormatter(json_formatter)
     file_handler.setLevel(logging.INFO)
 
-    # Console handler
+    # Console handler (human-readable format with colors)
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+    console_handler.setFormatter(human_formatter)
     console_handler.setLevel(logging.INFO)
 
     # Set up root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
+
+    # Add correlation ID filter
+    correlation_filter = CorrelationIDFilter()
+    root_logger.addFilter(correlation_filter)
+    file_handler.addFilter(correlation_filter)
+    console_handler.addFilter(correlation_filter)
+
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
@@ -108,6 +149,7 @@ def home():
     return jsonify({"message": "Ingestion Service is running"}), 200
 
 @app.route('/health', methods=['GET'])
+@with_correlation_id
 def health():
     # Check RabbitMQ connection
     rabbitmq_status = "healthy" if rabbitmq_connection and not rabbitmq_connection.is_closed else "unhealthy"
@@ -124,46 +166,41 @@ def health():
     return jsonify(status), 200 if rabbitmq_status == "healthy" else 503
 
 @app.route('/ingestion/document', methods=['POST'])
+@with_correlation_id
 def ingest_document():
     if not rabbitmq_connection or rabbitmq_connection.is_closed:
         return jsonify({"error": "RabbitMQ connection is not available"}), 503
 
     try:
         # Get document data from request
-        if not request.is_json:
-            return jsonify({"error": "Request must be JSON"}), 400
-        
         document_data = request.get_json()
+        
+        # Validate request
         if not document_data or not isinstance(document_data, dict):
             return jsonify({"error": "Invalid request data"}), 400
         
-        # Generate document ID if not provided
-        doc_id = document_data.get('id') or str(time.time_ns())
-        document_data['id'] = doc_id
-        
-        # Add metadata
-        document_data['received_at'] = datetime.utcnow().isoformat()
-        document_data['source'] = request.headers.get('User-Agent', 'unknown')
-        
-        # Publish to RabbitMQ with topic routing
+        # Publish message to RabbitMQ
         rabbitmq_channel.basic_publish(
-            exchange='documents',
-            routing_key=f'document.received.{document_data.get("type", "default")}',
+            exchange='',
+            routing_key='document_ingestion',
             body=json.dumps(document_data),
             properties=pika.BasicProperties(
                 delivery_mode=2,  # make message persistent
                 content_type='application/json',
-                message_id=doc_id,
-                timestamp=int(time.time()),
-                type='document.received'
+                headers={'correlation_id': getattr(g, 'correlation_id', str(uuid.uuid4()))}
             )
         )
         
-        logger.info(f"Document ingestion request queued: {doc_id}")
+        doc_id = document_data.get('id', 'unknown')
+        logger.info("Document ingestion request queued", extra={
+            'document_id': doc_id,
+            'document_type': document_data.get('type'),
+            'source_url': document_data.get('source_url'),
+            'queue': 'document_ingestion'
+        })
         return jsonify({
             "message": "Document ingestion request accepted",
             "document_id": doc_id,
-            "received_at": document_data['received_at'],
             "status": "queued"
         }), 202
         
@@ -171,27 +208,39 @@ def ingest_document():
         logger.error(f"Error processing document ingestion request: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-@app.route('/health', methods=['GET'])
-def health():
-    logger.info('Health check performed')
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "service": "ingestion"
-    }), 200
+
 
 @app.before_request
 def log_request():
-    logger.info(f'Request received: {request.method} {request.url}')
+    logger.info('Request received', extra={
+        'method': request.method,
+        'url': request.url,
+        'path': request.path,
+        'remote_addr': request.remote_addr,
+        'headers': dict(request.headers)
+    })
 
 @app.after_request
 def log_response(response):
-    logger.info(f'Request completed: {request.method} {request.url} - Status: {response.status}')
+    logger.info('Request completed', extra={
+        'method': request.method,
+        'url': request.url,
+        'path': request.path,
+        'status_code': response.status_code,
+        'status': response.status,
+        'response_time_ms': (time.time() - request.start_time) * 1000 if hasattr(request, 'start_time') else None
+    })
     return response
 
 @app.errorhandler(Exception)
 def handle_error(error):
-    logger.error(f'Error occurred: {str(error)}', exc_info=True)
+    logger.error('Error occurred', extra={
+        'error_type': error.__class__.__name__,
+        'error_message': str(error),
+        'method': request.method,
+        'url': request.url,
+        'path': request.path
+    }, exc_info=True)
     return jsonify({
         "error": "Internal server error",
         "message": str(error)
