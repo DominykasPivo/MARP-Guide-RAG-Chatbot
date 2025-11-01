@@ -18,6 +18,8 @@ class DocumentDiscovered:
     source_url: str
     file_path: str
     discovered_at: str
+    last_modified: str | None = None
+    page_count: int | None = None
 
 @dataclass
 class Metadata:

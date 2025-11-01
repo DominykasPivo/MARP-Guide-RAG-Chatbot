@@ -8,6 +8,8 @@ import json
 import time
 import uuid # for generating correlation IDs
 from functools import wraps # for the decorator
+from discoverer import MARPDocumentDiscoverer
+from events import EventTypes, DocumentDiscovered
 
 app = Flask(__name__)
 
@@ -53,6 +55,7 @@ def setup_rabbitmq():
             # Declare queues
             channel.queue_declare(queue='document_ingestion', durable=True)
             channel.queue_declare(queue='extraction_queue', durable=True)
+            channel.queue_declare(queue='document_discovery', durable=True)
             
             return connection, channel
             
@@ -80,12 +83,16 @@ class JsonFormatter(logging.Formatter):
             'logger': record.name
         }
 
-        # Add extra fields from the record
+            # Add extra fields from the record, but only if they are JSON serializable
         for key, value in record.__dict__.items():
             if key not in self.default_keys and not key.startswith('_'):
-                log_data[key] = value
-
-        # Add exception info if present
+                try:
+                    # Try to serialize the value to verify it's JSON compatible
+                    json.dumps({key: value})
+                    log_data[key] = value
+                except (TypeError, ValueError, OverflowError):
+                    # If serialization fails, convert the value to a string representation
+                    log_data[key] = str(value)        # Add exception info if present
         if record.exc_info:
             log_data['exception'] = self.formatException(record.exc_info)
 
@@ -142,6 +149,75 @@ except Exception as e:
     logger.error(f"Failed to initialize RabbitMQ: {str(e)}")
     rabbitmq_connection = None
     rabbitmq_channel = None
+
+# Initialize document discoverer
+storage_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+document_discoverer = MARPDocumentDiscoverer(storage_dir)
+
+def publish_document_discovered_event(doc_info: dict):
+    """Publish a DocumentDiscovered event to RabbitMQ."""
+    if not rabbitmq_connection or rabbitmq_connection.is_closed:
+        logger.error("Cannot publish event: RabbitMQ connection not available")
+        return False
+
+    try:
+        # Create the event
+        event = DocumentDiscovered(
+            document_id=doc_info['id'],
+            title=doc_info['title'],
+            source_url=doc_info['url'],
+            file_path=os.path.join(storage_dir, f"{doc_info['id']}.pdf"),
+            discovered_at=doc_info['discovered_at']
+        )
+
+        # Publish to RabbitMQ
+        rabbitmq_channel.basic_publish(
+            exchange='',
+            routing_key='document_discovery',
+            body=json.dumps({
+                'event_type': EventTypes.DOCUMENT_DISCOVERED.value,
+                'data': {
+                    'document_id': event.document_id,
+                    'title': event.title,
+                    'source_url': event.source_url,
+                    'file_path': event.file_path,
+                    'discovered_at': event.discovered_at
+                }
+            }),
+            properties=pika.BasicProperties(
+                delivery_mode=2,  # make message persistent
+                content_type='application/json',
+                headers={'correlation_id': getattr(g, 'correlation_id', str(uuid.uuid4()))}
+            )
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to publish DocumentDiscovered event: {str(e)}")
+        return False
+
+@app.route('/discovery/start', methods=['POST'])
+@with_correlation_id
+def start_discovery():
+    """Endpoint to trigger document discovery."""
+    try:
+        # Discover new or updated documents
+        new_documents = document_discoverer.discover_documents()
+        
+        # Publish events for each discovered document
+        events_published = 0
+        for doc in new_documents:
+            if publish_document_discovered_event(doc):
+                events_published += 1
+        
+        return jsonify({
+            "message": "Document discovery completed",
+            "documents_found": len(new_documents),
+            "events_published": events_published
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error during document discovery: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/', methods=['GET'])
 def home():

@@ -1,5 +1,5 @@
 Flask==2.0.1
-Werkzeug==2.0.3  # had to add this to fix compatibility issues between Flask and Werkzeug (Flash dependency)
+Werkzeug==2.0.3  # had to add this to fix compatibility issues between Flask and Werkzeug
 requests==2.26.0
 python-dotenv==0.19.0
 gunicorn==20.1.0
@@ -7,3 +7,9 @@ pydantic==1.8.2
 python-multipart==0.0.5
 psutil==5.9.0
 pika==1.3.2  # RabbitMQ client
+PyPDF2==3.0.1  # For PDF processing
+python-docx==0.8.11  # For DOCX processing
+beautifulsoup4==4.12.2  # For HTML processing
+lxml==4.9.3  # Better HTML parser for bs4
+aiohttp==3.8.5  # For async HTTP requests
+urllib3<1.27,>=1.21.1  # Version compatible with requests // <1.27> to avoid dependency issues with Werkzeug

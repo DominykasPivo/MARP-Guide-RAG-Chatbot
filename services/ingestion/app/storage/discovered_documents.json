@@ -1,0 +1,182 @@
+{
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Intro-to-MARP.pdf": {
+    "id": "6397735c59f4413b88cef3fd8507b74c",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Intro-to-MARP.pdf",
+    "title": "Intro To Marp",
+    "hash": "8073612a941950828a7b5ebc13dc88a9",
+    "discovered_at": "2025-11-01T19:07:16.560050",
+    "last_modified": "2025-09-17T17:06:45",
+    "page_count": 10,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\6397735c59f4413b88cef3fd8507b74c.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/MARP-Recent-Changes-Table.pdf": {
+    "id": "e8c0c47e5c54b24ca79054c8d3f65830",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/MARP-Recent-Changes-Table.pdf",
+    "title": "Marp Recent Changes Table",
+    "hash": "df4cc05c37f4b8bae6c7a9583dd7a888",
+    "discovered_at": "2025-11-01T19:07:18.470888",
+    "last_modified": "2025-09-19T09:07:34",
+    "page_count": 4,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\e8c0c47e5c54b24ca79054c8d3f65830.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Portfolio-of-Award.pdf": {
+    "id": "44b2af0f3bc8f9ac4780188aff8ac8a9",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Portfolio-of-Award.pdf",
+    "title": "Portfolio Of Award",
+    "hash": "cef5e62aeffeeeaae864e132f02c5392",
+    "discovered_at": "2025-11-01T19:07:20.442429",
+    "last_modified": "2025-09-05T11:08:44",
+    "page_count": 8,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\44b2af0f3bc8f9ac4780188aff8ac8a9.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Admissions.pdf": {
+    "id": "4e66dc0756fa755e596cb08e4ada286f",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Admissions.pdf",
+    "title": "Admissions",
+    "hash": "769552a181637feb028a7692b18ebdce",
+    "discovered_at": "2025-11-01T19:07:22.331160",
+    "last_modified": "2025-09-05T13:06:50",
+    "page_count": 6,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\4e66dc0756fa755e596cb08e4ada286f.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/RPL.pdf": {
+    "id": "f4f3d2fab5edf94758eb738f5978c74a",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/RPL.pdf",
+    "title": "Rpl",
+    "hash": "769552a181637feb028a7692b18ebdce",
+    "discovered_at": "2025-11-01T19:07:24.280199",
+    "last_modified": "2025-09-05T13:06:50",
+    "page_count": 10,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\f4f3d2fab5edf94758eb738f5978c74a.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Study-Regs.pdf": {
+    "id": "c6fa37cc5fb669cc9435d45414979523",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Study-Regs.pdf",
+    "title": "Study Regs",
+    "hash": "c29390473b6b6d6d1a6ec6125b2b5da1",
+    "discovered_at": "2025-11-01T19:07:26.484003",
+    "last_modified": "2025-09-23T21:06:40",
+    "page_count": 14,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\c6fa37cc5fb669cc9435d45414979523.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/General-Regs.pdf": {
+    "id": "231277f51382309723edf421361111f2",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/General-Regs.pdf",
+    "title": "General Regs",
+    "hash": "c29390473b6b6d6d1a6ec6125b2b5da1",
+    "discovered_at": "2025-11-01T19:07:28.767258",
+    "last_modified": "2025-09-23T21:06:40",
+    "page_count": 30,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\231277f51382309723edf421361111f2.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/UG-Assess-Regs.pdf": {
+    "id": "2d73820b57042c9a2ca957b14e2ae49c",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/UG-Assess-Regs.pdf",
+    "title": "Ug Assess Regs",
+    "hash": "0522c91d312b4b51228592e5aa111bf7",
+    "discovered_at": "2025-11-01T19:07:31.101385",
+    "last_modified": "2025-10-02T23:07:04",
+    "page_count": 36,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\2d73820b57042c9a2ca957b14e2ae49c.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Medical-Assess-Regs.pdf": {
+    "id": "700087c037fd8b49492e01b504281e0d",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Medical-Assess-Regs.pdf",
+    "title": "Medical Assess Regs",
+    "hash": "de1cc5b78a9688048bae8b112531628d",
+    "discovered_at": "2025-11-01T19:07:33.558851",
+    "last_modified": "2025-09-18T13:06:50",
+    "page_count": 17,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\700087c037fd8b49492e01b504281e0d.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/PGT-Assess-Regs-previous-year.pdf": {
+    "id": "72ea550eba281d3ec855e855515ebfe8",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/PGT-Assess-Regs-previous-year.pdf",
+    "title": "Pgt Assess Regs Previous Year",
+    "hash": "769552a181637feb028a7692b18ebdce",
+    "discovered_at": "2025-11-01T19:07:35.835954",
+    "last_modified": "2025-09-05T13:06:50",
+    "page_count": 20,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\72ea550eba281d3ec855e855515ebfe8.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/PGT-Assess-Regs.pdf": {
+    "id": "f8fde8dfb2f5c1c0c3e1451b3625b14a",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/PGT-Assess-Regs.pdf",
+    "title": "Pgt Assess Regs",
+    "hash": "c29390473b6b6d6d1a6ec6125b2b5da1",
+    "discovered_at": "2025-11-01T19:07:38.337419",
+    "last_modified": "2025-09-23T21:06:40",
+    "page_count": 18,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\f8fde8dfb2f5c1c0c3e1451b3625b14a.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/PGR-Regs.pdf": {
+    "id": "a593380d7ea48719b30d71783d2613aa",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/PGR-Regs.pdf",
+    "title": "Pgr Regs",
+    "hash": "c29390473b6b6d6d1a6ec6125b2b5da1",
+    "discovered_at": "2025-11-01T19:07:40.635504",
+    "last_modified": "2025-09-23T21:06:40",
+    "page_count": 55,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\a593380d7ea48719b30d71783d2613aa.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf": {
+    "id": "f27acd3b35b06050754e989c2a3570e5",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf",
+    "title": "Academic Integrity Regs",
+    "hash": "43bbe5555901c37ea3737c1748d6ec49",
+    "discovered_at": "2025-11-01T19:07:42.773874",
+    "last_modified": "2025-09-19T07:06:53",
+    "page_count": 20,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\f27acd3b35b06050754e989c2a3570e5.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Taught-Progs-EE-Procedures.pdf": {
+    "id": "e702f07444d4250c7c5d5c975b5916d3",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Taught-Progs-EE-Procedures.pdf",
+    "title": "Taught Progs Ee Procedures",
+    "hash": "e38916697dd7fc5da2a512c62f600b6c",
+    "discovered_at": "2025-11-01T19:07:44.858746",
+    "last_modified": "2025-09-17T17:02:59",
+    "page_count": 17,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\e702f07444d4250c7c5d5c975b5916d3.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Appeals.pdf": {
+    "id": "6b8cbe7b8aabe13549093b73b3a065b5",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Appeals.pdf",
+    "title": "Academic Appeals",
+    "hash": "6a85283b8114e553de028e22f1cad745",
+    "discovered_at": "2025-11-01T19:07:46.941815",
+    "last_modified": "2025-10-17T11:07:53",
+    "page_count": 11,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\6b8cbe7b8aabe13549093b73b3a065b5.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Standards-and-Quality.pdf": {
+    "id": "9a838db3606cd35581aeea138884d916",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Standards-and-Quality.pdf",
+    "title": "Standards And Quality",
+    "hash": "8073612a941950828a7b5ebc13dc88a9",
+    "discovered_at": "2025-11-01T19:07:49.124063",
+    "last_modified": "2025-09-17T17:06:45",
+    "page_count": 11,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\9a838db3606cd35581aeea138884d916.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/CDDA.pdf": {
+    "id": "aed7db9c7ebfd737f4c508471b776f3b",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/CDDA.pdf",
+    "title": "Cdda",
+    "hash": "9bf3f39b7f90e4cbcb084193d0fcda17",
+    "discovered_at": "2025-11-01T19:07:51.157748",
+    "last_modified": "2025-09-08T17:06:51",
+    "page_count": 12,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\aed7db9c7ebfd737f4c508471b776f3b.pdf"
+  },
+  "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/CTP.pdf": {
+    "id": "6815400592695af29b8b6f3565f103fd",
+    "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/CTP.pdf",
+    "title": "Ctp",
+    "hash": "8073612a941950828a7b5ebc13dc88a9",
+    "discovered_at": "2025-11-01T19:07:53.239639",
+    "last_modified": "2025-09-17T17:06:45",
+    "page_count": 26,
+    "file_path": "C:\\Users\\Dominykas\\OneDrive\\Documents\\GitHub\\MARP-Guide-RAG-Chatbot\\services\\ingestion\\app\\storage\\pdfs\\6815400592695af29b8b6f3565f103fd.pdf"
+  }
+}

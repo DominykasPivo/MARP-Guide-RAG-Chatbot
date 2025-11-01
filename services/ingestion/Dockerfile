@@ -15,7 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Copy the source code into the container.
-COPY app/app.py .
+COPY app/ .
+
+# Create data directory for document storage
+RUN mkdir -p data
 
 # Expose the port that the application listens on.
 EXPOSE 8000
