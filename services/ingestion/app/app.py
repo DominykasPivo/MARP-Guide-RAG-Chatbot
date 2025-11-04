@@ -1,8 +1,6 @@
-import logging
-from logging.handlers import RotatingFileHandler
 import os
-import pika # RabbitMQ client
-from flask import Flask, request, jsonify, g # g is for request context
+from rabbitmq import EventPublisher
+from flask import Flask, request, jsonify, g, send_file, Response # g is for request context
 from datetime import datetime
 import json   
 import time
@@ -10,17 +8,11 @@ import uuid # for generating correlation IDs
 from functools import wraps # for the decorator
 from discoverer import MARPDocumentDiscoverer
 from events import EventTypes, DocumentDiscovered
-
-app = Flask(__name__)
-
-class CorrelationIDFilter(logging.Filter):
-    """Filter that injects correlation ID into log records."""
-    def filter(self, record):
-        try:
-            record.correlation_id = getattr(g, 'correlation_id', 'no-correlation-id')
-        except:
-            record.correlation_id = 'no-correlation-id'
-        return True
+from logging_config import setup_logger
+from storage import DocumentStorage
+import threading
+# Set up logging with service name
+logger = setup_logger('ingestion')
 
 def with_correlation_id(f):
     """Decorator that ensures correlation ID is set for the request."""
@@ -38,186 +30,82 @@ def with_correlation_id(f):
         return f(*args, **kwargs)
     return decorated
 
-# RabbitMQ Configuration
-def setup_rabbitmq():
-    max_retries = 5
-    retry_delay = 5  # seconds
+app = Flask(__name__)
 
-    for attempt in range(max_retries):
-        try:
-            # Get RabbitMQ URL from environment variable or use default
-            rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://guest:guest@rabbitmq:5672/')
-            
-            # Create a connection to RabbitMQ
-            connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
-            channel = connection.channel()
-            
-            # Declare queues
-            channel.queue_declare(queue='document_ingestion', durable=True)
-            channel.queue_declare(queue='extraction_queue', durable=True)
-            channel.queue_declare(queue='document_discovery', durable=True)
-            
-            return connection, channel
-            
-        except pika.exceptions.AMQPConnectionError as error:
-            if attempt < max_retries - 1:
-                logging.warning(f"Failed to connect to RabbitMQ (attempt {attempt + 1}/{max_retries}). Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                logging.error("Failed to connect to RabbitMQ after maximum retries")
-                raise error
+# Initialize storage 
+storage = DocumentStorage("/data")
 
-# Configure logging
-class JsonFormatter(logging.Formatter):
-    """Custom JSON formatter for structured logging"""
-    def __init__(self):
-        super().__init__()
-        self.default_keys = ['timestamp', 'level', 'correlation_id', 'message', 'logger']
+@app.route('/documents', methods=['GET'])
+@with_correlation_id
+def list_documents():
+    """List all documents with their metadata."""
+    documents = storage.list_documents()
+    for doc in documents:
+        meta = storage.get_metadata(doc['document_id'])
+        if meta:
+            doc.update(meta)
+    accept = request.headers.get('Accept', '')
+    is_browser = getattr(request.user_agent, 'browser', None)
+    # If browser or JSON requested, use Flask jsonify (compact)
+    if accept.startswith('application/json') or is_browser:
+        return jsonify({'documents': documents})
+    # Otherwise, pretty-print JSON for better readability (e.g., PowerShell, cmd, curl)
+    pretty = json.dumps({'documents': documents}, indent=2, ensure_ascii=False)
+    return Response(pretty, mimetype='application/json')
 
-    def format(self, record):
-        log_data = {
-            'timestamp': self.formatTime(record, datefmt='%Y-%m-%d %H:%M:%S'),
-            'level': record.levelname,
-            'correlation_id': getattr(record, 'correlation_id', 'no-correlation-id'),
-            'message': record.getMessage(),
-            'logger': record.name
-        }
+@app.route('/documents/<document_id>', methods=['GET'])
+@with_correlation_id
+def get_document(document_id: str):
+    """Get a document's PDF content."""
+    pdf_bytes = storage.get_pdf(document_id)
+    if not pdf_bytes:
+        return jsonify({'error': 'Document not found'}), 404
+    # Stream PDF content as file
+    from io import BytesIO
+    return send_file(BytesIO(pdf_bytes), mimetype='application/pdf', as_attachment=True, download_name=f'{document_id}.pdf')
 
-            # Add extra fields from the record, but only if they are JSON serializable
-        for key, value in record.__dict__.items():
-            if key not in self.default_keys and not key.startswith('_'):
-                try:
-                    # Try to serialize the value to verify it's JSON compatible
-                    json.dumps({key: value})
-                    log_data[key] = value
-                except (TypeError, ValueError, OverflowError):
-                    # If serialization fails, convert the value to a string representation
-                    log_data[key] = str(value)        # Add exception info if present
-        if record.exc_info:
-            log_data['exception'] = self.formatException(record.exc_info)
 
-        return json.dumps(log_data)
-
-def setup_logger():
-    # Create logs directory if it doesn't exist
-    log_dir = '/app/logs'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
-    # Set up formatters for the human eye stdout 
-    json_formatter = JsonFormatter()
-    human_formatter = logging.Formatter(
-        '\033[32m%(asctime)s\033[0m [\033[1m%(levelname)s\033[0m] \033[36m%(correlation_id)s\033[0m - %(message)s'
-    )
-
-    # File handler for all logs (JSON format for machine processing)
-    file_handler = RotatingFileHandler(
-        f'{log_dir}/ingestion_service.log',
-        maxBytes=10485760,  # 10MB
-        backupCount=5
-    )
-    file_handler.setFormatter(json_formatter)
-    file_handler.setLevel(logging.INFO)
-
-    # Console handler (human-readable format with colors)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(human_formatter)
-    console_handler.setLevel(logging.INFO)
-
-    # Set up root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-
-    # Add correlation ID filter
-    correlation_filter = CorrelationIDFilter()
-    root_logger.addFilter(correlation_filter)
-    file_handler.addFilter(correlation_filter)
-    console_handler.addFilter(correlation_filter)
-
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-
-    return root_logger
-
-logger = setup_logger()
-
-# Initialize RabbitMQ connection and channel
-try:
-    rabbitmq_connection, rabbitmq_channel = setup_rabbitmq()
-    logger.info("Successfully connected to RabbitMQ")
-except Exception as e:
-    logger.error(f"Failed to initialize RabbitMQ: {str(e)}")
-    rabbitmq_connection = None
-    rabbitmq_channel = None
+# Initialize RabbitMQ event publisher
+RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
+event_publisher = EventPublisher(host=RABBITMQ_HOST)
 
 # Initialize document discoverer
-storage_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+storage_dir = "/data"
 document_discoverer = MARPDocumentDiscoverer(storage_dir)
 
-def publish_document_discovered_event(doc_info: dict):
-    """Publish a DocumentDiscovered event to RabbitMQ."""
-    if not rabbitmq_connection or rabbitmq_connection.is_closed:
-        logger.error("Cannot publish event: RabbitMQ connection not available")
-        return False
 
-    try:
-        # Create the event
-        event = DocumentDiscovered(
-            document_id=doc_info['id'],
-            title=doc_info['title'],
-            source_url=doc_info['url'],
-            file_path=os.path.join(storage_dir, f"{doc_info['id']}.pdf"),
-            discovered_at=doc_info['discovered_at']
-        )
-
-        # Publish to RabbitMQ
-        rabbitmq_channel.basic_publish(
-            exchange='',
-            routing_key='document_discovery',
-            body=json.dumps({
-                'event_type': EventTypes.DOCUMENT_DISCOVERED.value,
-                'data': {
-                    'document_id': event.document_id,
-                    'title': event.title,
-                    'source_url': event.source_url,
-                    'file_path': event.file_path,
-                    'discovered_at': event.discovered_at
-                }
-            }),
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # make message persistent
-                content_type='application/json',
-                headers={'correlation_id': getattr(g, 'correlation_id', str(uuid.uuid4()))}
-            )
-        )
-        return True
-    except Exception as e:
-        logger.error(f"Failed to publish DocumentDiscovered event: {str(e)}")
-        return False
+def publish_document_discovered_event(doc_info: DocumentDiscovered):
+    """Publish a DocumentDiscovered event to RabbitMQ using EventPublisher."""
+    correlation_id = doc_info.correlation_id
+    result = event_publisher.publish_event(EventTypes.DOCUMENT_DISCOVERED, doc_info, correlation_id=correlation_id)
+    if result:
+        logger.info(f"Published document discovery event for {doc_info.document_id}", extra={'correlation_id': correlation_id})
+    else:
+        logger.error(f"Failed to publish DocumentDiscovered event for {doc_info.document_id}", extra={'correlation_id': correlation_id})
+    return result
 
 @app.route('/discovery/start', methods=['POST'])
 @with_correlation_id
 def start_discovery():
-    """Endpoint to trigger document discovery."""
-    try:
-        # Discover new or updated documents
-        new_documents = document_discoverer.discover_documents()
-        
-        # Publish events for each discovered document
-        events_published = 0
-        for doc in new_documents:
-            if publish_document_discovered_event(doc):
-                events_published += 1
-        
-        return jsonify({
-            "message": "Document discovery completed",
-            "documents_found": len(new_documents),
-            "events_published": events_published
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error during document discovery: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+    """Endpoint to trigger document discovery as a background job."""
+    correlation_id = g.correlation_id
+
+    def discovery_job():
+        try:
+            new_documents = document_discoverer.discover_and_process_documents(correlation_id)
+            events_published = 0
+            for doc in new_documents:
+                if publish_document_discovered_event(doc):
+                    events_published += 1
+            logger.info(f"Background discovery completed: {len(new_documents)} documents, {events_published} events published", extra={'correlation_id': correlation_id})
+        except Exception as e:
+            logger.error(f"Error during background document discovery: {str(e)}", extra={'correlation_id': correlation_id})
+
+    threading.Thread(target=discovery_job, daemon=True).start()
+    return jsonify({
+        "message": "Document discovery started in background",
+        "job_status": "running"
+    }), 202
 
 @app.route('/', methods=['GET'])
 def home():
@@ -228,8 +116,7 @@ def home():
 @with_correlation_id
 def health():
     # Check RabbitMQ connection
-    rabbitmq_status = "healthy" if rabbitmq_connection and not rabbitmq_connection.is_closed else "unhealthy"
-    
+    rabbitmq_status = "healthy" if event_publisher and event_publisher._ensure_connection() else "unhealthy"
     status = {
         "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
         "timestamp": datetime.utcnow().isoformat(),
@@ -238,72 +125,14 @@ def health():
             "rabbitmq": rabbitmq_status
         }
     }
-    
     return jsonify(status), 200 if rabbitmq_status == "healthy" else 503
-
-@app.route('/ingestion/document', methods=['POST'])
-@with_correlation_id
-def ingest_document():
-    if not rabbitmq_connection or rabbitmq_connection.is_closed:
-        return jsonify({"error": "RabbitMQ connection is not available"}), 503
-
-    try:
-        # Get document data from request
-        document_data = request.get_json()
-        
-        # Validate request
-        if not document_data or not isinstance(document_data, dict):
-            return jsonify({"error": "Invalid request data"}), 400
-        
-        # Publish message to RabbitMQ
-        rabbitmq_channel.basic_publish(
-            exchange='',
-            routing_key='document_ingestion',
-            body=json.dumps(document_data),
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # make message persistent
-                content_type='application/json',
-                headers={'correlation_id': getattr(g, 'correlation_id', str(uuid.uuid4()))}
-            )
-        )
-        
-        doc_id = document_data.get('id', 'unknown')
-        logger.info("Document ingestion request queued", extra={
-            'document_id': doc_id,
-            'document_type': document_data.get('type'),
-            'source_url': document_data.get('source_url'),
-            'queue': 'document_ingestion'
-        })
-        return jsonify({
-            "message": "Document ingestion request accepted",
-            "document_id": doc_id,
-            "status": "queued"
-        }), 202
-        
-    except Exception as e:
-        logger.error(f"Error processing document ingestion request: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
-
-
-@app.before_request
-def log_request():
-    logger.info('Request received', extra={
-        'method': request.method,
-        'url': request.url,
-        'path': request.path,
-        'remote_addr': request.remote_addr,
-        'headers': dict(request.headers)
-    })
 
 @app.after_request
 def log_response(response):
     logger.info('Request completed', extra={
         'method': request.method,
-        'url': request.url,
         'path': request.path,
         'status_code': response.status_code,
-        'status': response.status,
         'response_time_ms': (time.time() - request.start_time) * 1000 if hasattr(request, 'start_time') else None
     })
     return response
@@ -322,6 +151,41 @@ def handle_error(error):
         "message": str(error)
     }), 500
 
+def run_discovery_background():
+    import threading
+    import time
+
+    def periodic_discovery():
+        while True:
+            logger.info('Running periodic document discovery...')
+            try:
+                new_documents = document_discoverer.discover_and_process_documents('auto-discovery')
+                for doc in new_documents:
+                    publish_document_discovered_event(doc)
+                logger.info(f'Periodic discovery complete. Documents found: {len(new_documents)}')
+            except Exception as e:
+                logger.error(f'Error during periodic discovery: {e}')
+            time.sleep(600)  # 10 minutes
+
+    def initial_discovery():
+        logger.info('Running initial document discovery on startup (background)...')
+        try:
+            new_documents = document_discoverer.discover_and_process_documents('startup')
+            for doc in new_documents:
+                publish_document_discovered_event(doc)
+            logger.info(f'Initial discovery complete. Documents found: {len(new_documents)}')
+        except Exception as e:
+            logger.error(f'Error during initial discovery: {e}')
+
+    # Start both initial and periodic discovery in background threads
+    threading.Thread(target=initial_discovery, daemon=True).start()
+    threading.Thread(target=periodic_discovery, daemon=True).start()
+
+
 if __name__ == '__main__':
+    run_discovery_background()
     logger.info('Starting Ingestion Service...')
-    app.run(host='0.0.0.0', port=8000)
+    logger.info('Registered routes:')
+    for rule in app.url_map.iter_rules():
+        logger.info(f"Route: {rule.rule} -> {rule.endpoint}")
+    app.run(host='0.0.0.0', port=8000, use_reloader=False)

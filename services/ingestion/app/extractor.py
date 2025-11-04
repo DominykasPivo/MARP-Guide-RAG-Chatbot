@@ -1,15 +1,16 @@
 """PDF link extraction module for MARP documents."""
-import logging
 from typing import Dict, List, Optional
 from datetime import datetime
 import io
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-from PyPDF2 import PdfReader
+from logging_config import setup_logger
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = setup_logger('ingestion.pdf')
+
+import PyPDF2
 
 class PDFLinkExtractor:
     """Extracts PDF links and metadata from HTML content."""
@@ -34,6 +35,8 @@ class PDFLinkExtractor:
         soup = BeautifulSoup(html_content, 'lxml')
         pdf_urls = []
         
+        logger.info("Looking for PDF links in HTML content...")
+        
         # Find all links that might be PDFs
         for link in soup.find_all('a'):
             href = link.get('href')
@@ -45,8 +48,10 @@ class PDFLinkExtractor:
             
             # Check if it's a PDF link
             if url.lower().endswith('.pdf'):
+                logger.info(f"Found PDF link: {url}")
                 pdf_urls.append(url)
         
+        logger.info(f"Found {len(pdf_urls)} PDF links")
         return pdf_urls
     
     def extract_metadata(self, url: str) -> Optional[Dict]:
@@ -59,70 +64,58 @@ class PDFLinkExtractor:
             Dictionary containing metadata if successful, None otherwise
         """
         try:
+            logger.info(f"Fetching PDF from: {url}")
             response = requests.get(url, stream=True)
             response.raise_for_status()
-            
-            # Get webpage content for title
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            page_response = requests.get(url.replace('.pdf', ''), headers=headers)
-            page_response.raise_for_status()
-            soup = BeautifulSoup(page_response.text, 'lxml')
-            
-            # Try to get title from different sources
-            title = None
-            if title_tag := soup.title:
-                title = title_tag.get_text(strip=True)
-            elif h1_tag := soup.find('h1'):
-                title = h1_tag.get_text(strip=True)
-            
-            # If no title found from HTML, use filename
-            if not title:
-                title = url.split('/')[-1].replace('.pdf', '').replace('-', ' ').title()
-            
-            # Get PDF metadata
+
+            # Just use the filename as title, as the MARP filenames are good enough
+            title = url.split('/')[-1].replace('.pdf', '').replace('-', ' ').title()
+            logger.info(f"Got title: {title}")
+
+            # Get PDF metadata from headers
             last_modified = response.headers.get('last-modified')
+            logger.info(f"Last-Modified header: {last_modified}")
+
             if last_modified:
-                pdf_date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S %Z').isoformat()
+                try:
+                    pdf_date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S %Z').isoformat()
+                    logger.info(f"Parsed date: {pdf_date}")
+                except ValueError:
+                    try:
+                        # Try another common format
+                        pdf_date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S %z').isoformat()
+                        logger.info(f"Parsed date (alternate format): {pdf_date}")
+                    except ValueError:
+                        logger.warning(f"Could not parse last-modified date: {last_modified}")
+                        pdf_date = None
             else:
+                logger.info("No Last-Modified header found")
                 pdf_date = None
-                
-            # Get actual page count using PyPDF2
+
+            # Save PDF content to file
+            logger.info("Saving PDF content")
             pdf_content = io.BytesIO(response.content)
-            pdf_reader = PdfReader(pdf_content)
-            page_count = len(pdf_reader.pages)
-            
-            return {
+
+            # Extract page count using PyPDF2
+            try:
+                pdf_content.seek(0)
+                reader = PyPDF2.PdfReader(pdf_content)
+                page_count = len(reader.pages)
+                logger.info(f"Extracted page count: {page_count}")
+            except Exception as e:
+                logger.warning(f"Could not extract page count: {e}")
+                page_count = None
+
+            metadata = {
                 'title': title,
                 'last_modified': pdf_date,
-                'page_count': page_count,
-                'discovered_at': datetime.utcnow().isoformat()
+                'discovered_at': datetime.utcnow().isoformat(),
+                'page_count': page_count
             }
-            
+            logger.info(f"Extracted metadata: {metadata}")
+            return metadata
+
         except (requests.RequestException, Exception) as e:
             logger.error(f"Failed to extract metadata for {url}: {str(e)}")
             return None
     
-    def _extract_title(self, link_element) -> str:
-        """Extract title from link element or surrounding context.
-        
-        Args:
-            link_element: BeautifulSoup link element
-            
-        Returns:
-            Extracted title or empty string if no title found
-        """
-        # Try direct link text first
-        title = link_element.get_text(strip=True)
-        if title:
-            return title
-            
-        # Look for nearby headings or list items
-        parent_li = link_element.find_parent('li')
-        if parent_li:
-            return parent_li.get_text(strip=True)
-            
-        prev_heading = link_element.find_previous(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-        if prev_heading:
-            return prev_heading.get_text(strip=True)
-            
-        return ""

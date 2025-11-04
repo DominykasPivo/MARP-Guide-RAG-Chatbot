@@ -1,11 +1,12 @@
 ### Responsibility:
-Manages uploading, validation, and registration of academic regulation documents (PDF, DOCX, etc.).
+Discovers, downloads, and registers academic regulation documents from Lancaster University's MARP website.
 
 ### Data Owned:
-
-*   File storage reference
-*   Document metadata (title, source, upload date).
+*   PDF document storage
+*   Document metadata (title, source URL, discovery date, last modified)
+*   Document discovery cache
 
 ### API Endpoints:
--   [GET] /ingestion/status/{id} – Get ingestion status for a document.
--   [POST] /ingestion/upload – Upload a new regulation document.
+-   [GET] / – Basic health check endpoint
+-   [GET] /health – Detailed health check with RabbitMQ status
+-   [POST] /discovery/start – Trigger discovery of new/updated MARP documents
