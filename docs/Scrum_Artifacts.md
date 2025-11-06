@@ -24,7 +24,7 @@ This backlog contains all known features, user stories, and technical debt requi
 | **S1-01** | Define and test docker-compose.yml for all 9 services (incl. DBs/Broker). | PBL-02 | DONE | Confirmed services can communicate internally via network. |
 | **S1-02** | Implement API Gateway (Flask) with basic /health endpoint and routing structure. | PBL-03 | DONE | Routing established for /chat. |
 | **S1-03** | Implement RetrievalService to connect to ChromaDB and perform simple vector query. | PBL-01 | DONE | Need to finalize ChromaDB connection string within container environment. |
-| **S1-04** | Implement Orchestrator (Flask) with placeholder endpoint for single LLM call. | PBL-01 | DONE | Successful connection to external LLM API (e.g., Gemini). |
+| **S1-04** | Implement Orchestrator (Flask) with placeholder endpoint for single LLM call. | PBL-01 | In Progress | Successful connection to external LLM API (e.g., Gemini). |
 | **S1-05** | Implement ChatService to orchestrate RAG: Query \-\> Retrieval \-\> Orchestrator \-\> Response. | PBL-01 | DONE | Dependent on S1-03 and S1-04 completion. |
 | **S1-06** | Develop basic React frontend UI for chat input and display. | PBL-05 | DONE | Focusing on layout and API connectivity. |
 | **S1-07** | Integrate API Gateway with React frontend. | PBL-03, PBL-05 | DONE | Successful HTTP communication confirmed. |
