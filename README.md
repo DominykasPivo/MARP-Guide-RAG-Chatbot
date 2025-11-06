@@ -54,12 +54,11 @@ The **API Gateway** remains the single public entry point; all other services ar
 | Service | Host Port | Container Port | Notes |
 | :---- | :---- | :---- | :---- |
 | APIGateway | 8000 | 8000 | **Public:** Frontend (React) talks to this port. |
-| AuthService | 8001 | 8000 | **Internal:** Handles user registration and login requests. |
-| IngestionService | 8002 | 8000 | **Internal:** Listens for external documents. |
-| ExtractionService | 8003 | 8000 | **Internal:** Consumes events from RabbitMQ. |
-| IndexingService | 8004 | 8000 | **Internal:** Consumes events to generate embeddings. |
-| ChatService | 8005 | 8000 | **Internal:** Manages conversation state and orchestrates RAG flow. |
-| RetrievalService | 8006 | 8000 | **Internal:** Queries the VectorDB. |
+| Ingestion | 8001 | 8000 | **Internal:** Listens for external documents. |
+| Extraction | 8002 | 8000 | **Internal:** Consumes events from RabbitMQ. |
+| Indexing | 8003 | 8000 | **Internal:** Consumes events to generate embeddings. |
+| Chat | 8004 | 8000 | **Internal:** Manages conversation state and orchestrates RAG flow. |
+| Retrieval | 8005 | 8000 | **Internal:** Queries the VectorDB. |
 
 
 
@@ -171,6 +170,7 @@ This stack outlines the dependencies for the two critical microservices responsi
 |  | **beautifulsoup4** | 4.13.0 **Latest** | HTML/XML Parser: Typically used for web scraping or processing structured data like HTML/XML that may be part of the ingestion flow (though less common for raw PDF ingestion, it's a general-purpose parsing utility). |
 |  | **lxml** | 4.9.3  | XML/HTML Processor: A high-performance parser often used in conjunction with beautifulsoup4 or for handling XML/HTML data sources to be ingested. |
 |  | **urllib3** | 1.21.1 | HTTP Client Library: Provides low-level HTTP client functionality; often used as a dependency by packages like requests to manage connection pooling and retries. |
+
 
 
 
