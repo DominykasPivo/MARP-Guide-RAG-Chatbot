@@ -10,7 +10,7 @@ from pika.exceptions import AMQPConnectionError, AMQPChannelError, AMQPError
 from logging_config import setup_logger
 
 # Configure logging
-logger = setup_logger('extraction.rabbitmq')
+logger = setup_logger('extraction')
 
 # Constants
 EXCHANGE_NAME = 'document_events'

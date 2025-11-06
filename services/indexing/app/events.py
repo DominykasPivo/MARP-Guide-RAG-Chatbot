@@ -2,6 +2,8 @@
 from enum import Enum
 from typing import Dict, Optional
 from dataclasses import dataclass
+import uuid
+from datetime import datetime
 
 class EventTypes(Enum):
     """
@@ -12,19 +14,56 @@ class EventTypes(Enum):
 
 @dataclass
 class DocumentExtracted:
-    """Triggered when a document has been extracted and is ready for indexing."""
-    document_id: str
-    title: str
-    page_texts: list  # List of text blocks (one per page or chunk)
-    metadata: Dict    # Metadata dictionary (author, source_url, etc.)
-    correlation_id: str
-    extracted_at: str
+    """Event data for an extracted document."""
+    eventType: str
+    eventId: str
+    timestamp: str
+    correlationId: str
+    source: str
+    version: str
+    payload: Dict 
 
+    # "payload": {
+    #     "documentId": "string",
+    #     "textContent": "string",
+    #     "metadata": {
+    #       "title": "string",
+    #       "sourceUrl": "string",
+    #       "fileType": "string",
+    #       "pageCount": "integer"
+    #     },
+    #     "extractedAt": "string"
+    #   }
 @dataclass
 class ChunksIndexed:
     """Emitted after a document is successfully indexed."""
-    document_id: str
-    title: str
-    chunk_count: int
-    correlation_id: str
-    indexed_at: str
+    eventType: str
+    eventId: str
+    timestamp: str
+    correlationId: str
+    source: str
+    version: str
+    payload: Dict 
+    # def to_dict(self):
+    #     return {
+    #         "eventType": "ChunksIndexed",
+    #         "eventId": str(uuid.uuid4()),
+    #         "timestamp": datetime.utcnow().isoformat(),
+    #         "correlationId": self.correlation_id,
+    #         "source": "indexing-service",
+    #         "version": "1.0",
+    #         "payload": {
+    #             "documentId": self.document_id,
+    #             "chunkId": self.chunk_id,
+    #             "chunkIndex": self.chunk_index,
+    #             "chunkText": self.chunk_text,
+    #             "totalChunks": self.total_chunks,
+    #             "embeddingModel": self.embedding_model,
+    #             "metadata": {
+    #                 "title": self.metadata.get("title", "Unknown Title"),
+    #                 "pageCount": self.metadata.get("pageCount", 0),
+    #                 "sourceUrl": self.metadata.get("sourceUrl", "Unknown Source")
+    #             },
+    #             "indexedAt": self.indexed_at
+    #         }
+    #     }

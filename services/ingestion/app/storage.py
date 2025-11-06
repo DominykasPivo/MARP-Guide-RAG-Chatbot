@@ -60,7 +60,7 @@ class DocumentStorage:
                 meta_entry = {
                     'title': metadata.get('title'),
                     'url': metadata.get('url'),
-                    'discovered_at': metadata.get('discovered_at'),
+                    'date': metadata.get('date'),  # Updated to match 'date' field from discoverer.py
                     'last_modified': metadata.get('last_modified'),
                     'page_count': metadata.get('page_count'),
                     'hash': metadata.get('hash'),

@@ -1,33 +1,21 @@
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY app ./app
-EXPOSE 8000
-CMD ["python", "app/app.py"]
-
-
-
-#Base image
+#Base image // Using older one because hnswlib has issues with Python 3.12
 FROM python:3.12-slim
 
 #Set working directory
 WORKDIR /app
 
 #Copy dependency files
-COPY requirements.txt .
+COPY requirements.txt . 
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install curl for healthchecks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# One of the dependencies requires build tools to compile docker  // # Install curl for healthchecks
+RUN apt-get update && apt-get install -y build-essential g++ cmake curl && rm -rf /var/lib/apt/lists/*
 
 # Copy the source code into the container.
 COPY app/ .
-
-# Create data directory for document storage
-RUN mkdir -p data
 
 # Expose the port that the application listens on.
 EXPOSE 8000

@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 import re
 from typing import Dict, Optional
-
 import magic
 import PyPDF2
 import pdfplumber
@@ -14,11 +13,21 @@ logger = setup_logger('extraction.pdf')
 
 class PDFExtractor:
     """Handles PDF text and metadata extraction."""
+
+    def check_file_type(self, file_path: str) -> str:
+        """Check the file type and return its MIME type."""
+        try:
+            mime_type = magic.from_file(file_path, mime=True)
+            return mime_type
+        except Exception as e:
+            logger.error(f"Failed to check file type: {str(e)}")
+            raise
     
-    def extract_document(self, file_path: str) -> Dict:
+    def extract_document(self, file_path: str, source_url: str) -> Dict:
         """Extract text and metadata from a PDF document using pdfplumber, returning per-page text blocks for semantic chunking.
         Args:
             file_path: Path to the PDF file
+            source_url: URL of the document source
         Returns:
             Dictionary containing:
                 - page_texts: List of cleaned text blocks, one per page
@@ -30,10 +39,9 @@ class PDFExtractor:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        # Verify file is PDF
-        mime_type = magic.from_file(file_path, mime=True)
-        if mime_type != 'application/pdf':
-            raise ValueError(f"File is not a PDF: {mime_type}")
+        if self.check_file_type(file_path) != 'application/pdf':
+            raise ValueError(f"File is not a PDF: {self.check_file_type(file_path)}")
+    
 
         try:
             # Extract text per page using pdfplumber
@@ -45,7 +53,7 @@ class PDFExtractor:
                     page_texts.append(cleaned)
 
             # Extract metadata using PyPDF2
-            metadata = self._extract_metadata(file_path)
+            metadata = self._extract_metadata(file_path, source_url)
 
             return {
                 "page_texts": page_texts,
@@ -73,12 +81,13 @@ class PDFExtractor:
         text = re.sub(r'(?<=[a-z])\.(?=[A-Z])', '. ', text)  # Fix missing space after period
         
         return text.strip()
-            
-    def _extract_metadata(self, file_path: str) -> Dict:
+
+    def _extract_metadata(self, file_path: str, source_url: str) -> Dict:
         """Extract metadata from PDF file.
         
         Args:
             file_path: Path to the PDF file
+            source_url: URL of the document source
             
         Returns:
             Dictionary containing metadata fields
@@ -86,22 +95,22 @@ class PDFExtractor:
         try:
             with open(file_path, 'rb') as file:
                 reader = PyPDF2.PdfReader(file)
-                
                 # Get basic metadata
                 info = reader.metadata if reader.metadata else {}
-                
+                page_count = len(reader.pages)
                 return {
                     "title": info.get('/Title', os.path.basename(file_path)),
-                    "author": info.get('/Author', 'Unknown'),
-                    "creation_date": self._parse_pdf_date(info.get('/CreationDate')),
-                    "last_modified": self._parse_pdf_date(info.get('/ModDate')),
-                    "file_type": "pdf",
-                    "page_count": len(reader.pages)
+                    "pageCount": page_count,
+                    "sourceUrl": source_url
                 }
-                
+
         except Exception as e:
             logger.error(f"Failed to extract metadata: {str(e)}")
-            raise
+            return {
+                "title": os.path.basename(file_path),
+                "pageCount": 0,
+                "sourceUrl": source_url
+            }
             
     def _parse_pdf_date(self, date_str: Optional[str]) -> Optional[str]:
         """Parse PDF date string into ISO format.
@@ -124,3 +133,4 @@ class PDFExtractor:
             return date.isoformat()
         except Exception:
             return None
+

@@ -11,12 +11,21 @@ class EventTypes(Enum):
 
 @dataclass
 class DocumentDiscovered:
-    """Triggered when a new MARP PDF is found for ingestion."""
-    document_id: str
-    title: str
-    source_url: str
-    file_path: str
-    discovered_at: str
-    correlation_id: str  # Required for tracing
-    last_modified: Optional[str] = None  # From HTTP headers
-    page_count: Optional[int] = None  # Number of pages in the PDF
+    """Event schema for DocumentDiscovered."""
+    eventType: str
+    eventId: str
+    timestamp: str
+    correlationId: str
+    source: str
+    version: str
+    payload: Dict
+
+
+# "payload": {
+#         "documentId": "string",
+#         "title": "string",
+#         "pageCount": "integer",
+#         "sourceUrl": "string",
+#         "filePath": "string",
+#         "discoveredAt": "string"
+#       }

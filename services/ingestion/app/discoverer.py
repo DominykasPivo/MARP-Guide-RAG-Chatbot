@@ -9,6 +9,7 @@ from extractor import PDFLinkExtractor
 from events import DocumentDiscovered
 from storage import DocumentStorage
 from logging_config import setup_logger
+import uuid
 
 # Configure logging
 logger = setup_logger('ingestion.discoverer')
@@ -30,7 +31,7 @@ class MARPDocumentDiscoverer:
         
 
     def _get_document_hash(self, url: str, correlation_id: str = None) -> str:
-        """Get hash of document content to detect changes.
+        """Get hash of document content to detect changes, including the document title.
         
         Args:
             url: URL of the document to hash
@@ -39,17 +40,28 @@ class MARPDocumentDiscoverer:
         try:
             response = requests.head(url, allow_redirects=True)
             response.raise_for_status()
+
+            # Extract document title from the URL or headers
+            title = url.split('/')[-1]  # Use the last part of the URL as the title
+            title = title.split('.')[0]  # Remove file extension if present
+
             # Use last modified header if available, otherwise use etag or content length
             last_modified = response.headers.get('last-modified')
             if last_modified:
-                return hashlib.md5(last_modified.encode()).hexdigest()
-            etag = response.headers.get('etag')
-            if etag:
-                return hashlib.md5(etag.encode()).hexdigest()
-            return hashlib.md5(str(response.headers.get('content-length', '')).encode()).hexdigest()
+                hash_input = f"{title}-{last_modified}"
+            else:
+                etag = response.headers.get('etag')
+                if etag:
+                    hash_input = f"{title}-{etag}"
+                else:
+                    content_length = response.headers.get('content-length', '')
+                    hash_input = f"{title}-{content_length}"
+
+            # Generate hash including the title
+            return hashlib.md5(hash_input.encode()).hexdigest()
         except requests.RequestException as e:
             logger.error(f"Failed to get document hash for {url}: {str(e)}", 
-                       extra={'correlation_id': correlation_id})
+                         extra={'correlation_id': correlation_id})
             return ""
     
     def discover_document_urls(self, correlation_id: str = None) -> List[str]:
@@ -77,37 +89,6 @@ class MARPDocumentDiscoverer:
         except requests.RequestException as e:
             logger.error(f"Failed to discover documents: {str(e)}", extra={'correlation_id': correlation_id})
             return []
-    
-    def _download_pdf(self, url: str, correlation_id: str = None) -> Optional[bytes]:
-        """Download a PDF file with retry logic.
-        Args:
-            url: URL of the PDF to download
-            correlation_id: Optional correlation ID for request tracing
-        Returns:
-            PDF content as bytes if successful, None otherwise
-        """
-        max_retries = 3
-        base_delay = 2  # seconds
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"Attempting to download PDF from {url} (attempt {attempt+1}/{max_retries})", extra={'correlation_id': correlation_id})
-                response = requests.get(url)
-                response.raise_for_status()
-                content_type = response.headers.get('content-type', '')
-                content_length = len(response.content)
-                logger.info(f"Downloaded PDF - Content-Type: {content_type}, Size: {content_length} bytes", 
-                            extra={'correlation_id': correlation_id})
-                return response.content
-            except requests.RequestException as e:
-                logger.warning(f"Failed to download PDF from {url} (attempt {attempt+1}/{max_retries}): {str(e)}", extra={'correlation_id': correlation_id})
-                if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)  # exponential backoff
-                    logger.info(f"Retrying in {delay} seconds...", extra={'correlation_id': correlation_id})
-                    import time
-                    time.sleep(delay)
-                else:
-                    logger.error(f"Giving up on downloading PDF from {url} after {max_retries} attempts.", extra={'correlation_id': correlation_id})
-        return None
     
     def process_documents(self, urls: List[str], correlation_id: str) -> List[DocumentDiscovered]:
         """Second step: Download PDFs and prepare document discovery events.
@@ -138,22 +119,16 @@ class MARPDocumentDiscoverer:
             if doc_id not in self.storage.index or self.storage.index[doc_id].get('hash') != current_hash:
                 logger.info(f"Document {url} is new or updated", extra={'correlation_id': correlation_id})
                 # Extract metadata
-                metadata = self.extractor.extract_metadata(url)
+
+                metadata = self.extractor.extract_metadata(url, correlation_id)
+
                 if not metadata:
                     logger.error(f"Failed to extract metadata for {url}", extra={'correlation_id': correlation_id})
                     continue
-                logger.info(f"Got metadata for {url}: {metadata}", extra={'correlation_id': correlation_id})
-                # Explicitly log page_count and correlation_id
-                logger.info(f"Metadata page_count for {url}: {metadata.get('page_count')}", extra={'correlation_id': correlation_id})
-                logger.info(f"Metadata correlation_id for {url}: {correlation_id}", extra={'correlation_id': correlation_id})
+                else: logger.info(f"Got metadata for {url}: {metadata}", extra={'correlation_id': correlation_id})
 
-                # Download PDF
-                logger.info(f"Starting PDF download for {url}", extra={'correlation_id': correlation_id})
-                pdf_content = self._download_pdf(url, correlation_id)
-                if not pdf_content:
-                    logger.error(f"Failed to download PDF for {url}", extra={'correlation_id': correlation_id})
-                    continue
-                logger.info(f"Successfully downloaded PDF ({len(pdf_content)} bytes) for {url}", extra={'correlation_id': correlation_id})
+                # Explicitly log page_count and correlation_id
+                logger.info(f"Metadata for {url}: page_count={metadata.get('page_count')}, correlation_id={correlation_id}", extra={'correlation_id': correlation_id})
 
                 # Store document
                 logger.info(f"Attempting to store document {doc_id}", extra={'correlation_id': correlation_id})
@@ -161,13 +136,21 @@ class MARPDocumentDiscoverer:
                 meta_to_store = {
                     'title': metadata['title'],
                     'url': url,
-                    'discovered_at': metadata['discovered_at'],
+                    'date': metadata['date'],  # Updated to match 'date' field from extractor.py
                     'last_modified': metadata.get('last_modified'),
                     'page_count': metadata.get('page_count', None),
                     'hash': current_hash,
                     'correlation_id': correlation_id
                 }
                 logger.info(f"Storing document with metadata: {meta_to_store}", extra={'correlation_id': correlation_id})
+                
+                # Download PDF using extractor
+                pdf_content = self.extractor.download_pdf(url, correlation_id)
+                if not pdf_content:
+                    logger.error(f"Failed to download PDF for {url}", extra={'correlation_id': correlation_id})
+                    continue
+                logger.info(f"Successfully downloaded PDF ({len(pdf_content)} bytes) for {url}", extra={'correlation_id': correlation_id})
+                
                 stored = self.storage.store_document(
                     document_id=doc_id,
                     pdf_content=pdf_content,
@@ -178,16 +161,25 @@ class MARPDocumentDiscoverer:
                     continue
                 logger.info(f"Stored document {doc_id}", extra={'correlation_id': correlation_id})
 
+
+
+                event_version = os.getenv("EVENT_VERSION", "1.0")
                 # Create document discovery event
                 event = DocumentDiscovered(
-                    document_id=doc_id,
-                    source_url=url,
-                    file_path=os.path.join('/data', 'documents', 'pdfs', f"{doc_id}.pdf"),
-                    title=metadata['title'],
-                    discovered_at=metadata['discovered_at'],
-                    last_modified=metadata.get('last_modified'),
-                    page_count=metadata.get('page_count'),
-                    correlation_id=correlation_id
+                    eventType="DocumentDiscovered",
+                    eventId=str(uuid.uuid4()),
+                    timestamp=datetime.utcnow().isoformat(),
+                    correlationId=correlation_id,
+                    source="ingestion-service",
+                    version=event_version,
+                    payload={
+                        "documentId": doc_id,
+                        "title": metadata['title'],
+                        "pageCount": metadata.get('page_count'),
+                        "sourceUrl": metadata['source_url'],
+                        "filePath": os.path.join('/data', 'documents', 'pdfs', f"{doc_id}.pdf"),
+                        "discoveredAt": metadata['date']
+                    }
                 )
                 logger.info(f"Created document discovery event for {url}", extra={'correlation_id': correlation_id})
                 discovered_docs.append(event)

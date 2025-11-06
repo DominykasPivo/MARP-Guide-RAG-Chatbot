@@ -1,23 +1,26 @@
-"""Entry point for the extraction service."""
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import pika
 from functools import wraps
 from dataclasses import asdict # for converting dataclasses to dicts (metadata > dict > JSON serialization)
 from flask import Flask, jsonify, g, request
 from rabbitmq import EventConsumer
-from events import DocumentDiscovered, DocumentExtracted, EventTypes, Metadata
+from events import DocumentDiscovered, EventTypes
 from extractor import PDFExtractor
 from logging_config import setup_logger
+import threading
 
-# Initialize Flask
-app = Flask(__name__)
+
 
 # Set up logging with service name
 logger = setup_logger('extraction')
+
+
+# Initialize Flask
+app = Flask(__name__)
 
 def with_correlation_id(f):
     """Decorator that ensures correlation ID is set for the request."""
@@ -103,7 +106,7 @@ class ExtractionService:
         """
         # Get correlation ID from properties (should be set by wrapper)
         correlation_id = properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
-
+        logger.info(f"Handling document message", extra={'correlation_id': correlation_id})
         try:
             # Parse message body
             message = json.loads(body)
@@ -111,60 +114,81 @@ class ExtractionService:
 
             logger.info("Handling document message", extra={'correlation_id': correlation_id})
 
-            # Deserialize to DocumentDiscovered event (now includes correlation_id)
+            # Deserialize to DocumentDiscovered event  -> Full event structure
             discovered = DocumentDiscovered(
-                document_id=event_data['document_id'],
-                title=event_data['title'],
-                source_url=event_data['source_url'],
-                file_path=event_data['file_path'],
-                discovered_at=event_data['discovered_at'],
-                correlation_id=correlation_id,
-                last_modified=event_data.get('last_modified'),
-                page_count=event_data.get('page_count')
+                eventType=message['eventType'],
+                eventId=message['eventId'],
+                timestamp=message['timestamp'],
+                correlationId=message['correlationId'],
+                source=message['source'],
+                version=message['version'],
+                payload=message['payload'] # This is where the document data lives
             )
+             # Extract the actual document data from the payload
 
-            logger.info(f"Processing document {discovered.document_id}", extra={
-                'correlation_id': correlation_id,
-                'document_id': discovered.document_id,
-                'title': discovered.title,
-                'file_path': discovered.file_path,
-                'discovered_at': discovered.discovered_at
+            logger.info("Processing document", extra={
+                'correlation_id': discovered.correlationId,
+                'document_id': discovered.payload['documentId'],
+                'title': discovered.payload['title'],
+                'pageCount': discovered.payload['pageCount'],
+                'source_url': discovered.payload['sourceUrl'],
+                'discovered_at': discovered.payload['discoveredAt']
             })
+            
+            # Debug log to inspect the payload of DocumentDiscovered
+            logger.debug(f"Discovered event: {discovered}")
             
             # Extract text and metadata
             start_time = time.time()
-            file_path = discovered.file_path.replace('/data/', '/data/', 1)  # No change needed since both use /data
-            result = self.extractor.extract_document(file_path)
+            file_path = discovered.payload["filePath"]
+            result = self.extractor.extract_document(file_path, discovered.payload.get("sourceUrl"))
+            extracted_file_time = datetime.now(timezone.utc).isoformat()
             processing_time = (time.time() - start_time) * 1000  # ms
             
-            # Create metadata
-            metadata = Metadata(
-                author=result["metadata"].get("author", "Unknown"),
-                source_url=discovered.source_url,
-                file_type="pdf",
-                creation_date=result["metadata"].get("creation_date"),
-                last_modified=discovered.last_modified
-            )
+            # Extract metadata from the result
+            metadata = result.get("metadata", {})
             
             # Use page count from event if present, otherwise fallback to PDF extraction
-            page_count = discovered.page_count if discovered.page_count is not None else result["metadata"].get("page_count")
+            page_count = metadata.get("pageCount")
             
-            # Create extracted event
+            # version to reflect backward-compatible changes
+            event_version = os.getenv("EVENT_VERSION", "1.0")
+            time_now = datetime.now(timezone.utc).isoformat()
+
+            #get the file type
+            fileType = self.extractor.check_file_type(file_path)
+            fileType = fileType.split('/')[-1]  # Keep only the part after the last '/'  normally it would be application/pdf
+            
+            # Refactor event_data to match the new schema
+
             event_data = {
-                "document_id": discovered.document_id,
-                "title": discovered.title,
-                "text_content": result["text_content"],
-                "page_count": page_count,
-                "metadata": asdict(metadata) if metadata else {},
-                "extracted_at": datetime.utcnow().isoformat()
+                "eventType": "DocumentExtracted",
+                "eventId": str(uuid.uuid4()),
+                "timestamp": time_now,
+                "correlationId": correlation_id,
+                "source": "extraction-service",
+                "version": event_version,  # Incremented version to reflect backward-compatible changes
+                "payload": {
+                    "documentId": discovered.payload.get("documentId"),
+                    "textContent": "\n\n".join(result.get("page_texts", [])),  # Ensure page_texts is handled safely
+                    "fileType": fileType,
+                    "metadata": {
+                        "title": metadata.get("title", "Unknown Title"),  # Default to "Unknown Title" if missing
+                        "sourceUrl": discovered.payload.get("sourceUrl", "Unknown Source"),  # Default to "Unknown Source" if missing
+                        "pageCount": page_count
+                    },
+                    "extractedAt": extracted_file_time
+                }
             }
+            
+            logger.info(f"DOCUMENT_EXTRACTED event data: {json.dumps(event_data, indent=2)}")
             
             # Publish the event with correlation ID
             if self.consumer.publish("document.extracted", EventTypes.DOCUMENT_EXTRACTED.value, event_data, correlation_id=correlation_id):
                 logger.info("Document extraction completed", extra={
                     'correlation_id': correlation_id,
-                    'document_id': discovered.document_id,
-                    'title': discovered.title,
+                    'document_id': discovered.payload['documentId'],
+                    'title': discovered.payload['title'],
                     'page_count': page_count,
                     'processing_time_ms': processing_time
                 })
@@ -182,66 +206,77 @@ class ExtractionService:
             }, exc_info=True)
             # TODO: Handle error (dead letter queue?)
 
+
 @app.route('/', methods=['GET'])
 def home():
     """Home endpoint."""
     logger.info('Home endpoint accessed')
     return jsonify({"message": "Extraction Service is running"}), 200
 
+
+
 @app.route('/health', methods=['GET'])
 @with_correlation_id
 def health():
     """Health check endpoint."""
-    try:
-        # Log health check request
-        logger.info("Health check requested", extra={
-            'method': request.method,
-            'path': request.path,
-            'remote_addr': request.remote_addr,
-            'headers': dict(request.headers)
-        })
-        
-        # Check RabbitMQ connection
-        rabbitmq_status = "healthy" if service.consumer.connection and not service.consumer.connection.is_closed else "unhealthy"
-        
-        status = {
-            "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "service": "extraction",
-            "dependencies": {
-                "rabbitmq": rabbitmq_status
-            },
-            "uptime": time.time() - service.consumer.start_time if hasattr(service.consumer, 'start_time') else None,
-            "response_time_ms": (time.time() - request.start_time) * 1000 if hasattr(request, 'start_time') else None
+    # Check RabbitMQ connection
+    rabbitmq_status = "healthy" if service.consumer.connection and not service.consumer.connection.is_closed else "unhealthy"
+
+    # Prepare health status
+    status = {
+        "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "service": "extraction",
+        "dependencies": {
+            "rabbitmq": rabbitmq_status
         }
-        
-        response_code = 200 if rabbitmq_status == "healthy" else 503
-        logger.info("Health check completed", extra={
-            'status_code': response_code,
-            'rabbitmq_status': rabbitmq_status,
-            'response_time_ms': (time.time() - request.start_time) * 1000 if hasattr(request, 'start_time') else None
-        })
-        
-        return jsonify(status), response_code
-        
+    }
+
+    # Return status with appropriate HTTP code
+    return jsonify(status), 200 if rabbitmq_status == "healthy" else 503
+
+@app.route('/test/discover', methods=['POST'])
+def test_discover():
+    """Simulate a document.discovered event."""
+    try:
+        # Mock data for a discovered document
+        mock_event = {
+            "data": {
+                "document_id": "test-doc-123",
+                "title": "Test Document",
+                "source_url": "http://example.com/test.pdf",
+                "file_path": "/data/test.pdf",
+                "discovered_at": datetime.utcnow().isoformat(),
+                "last_modified": datetime.utcnow().isoformat(),
+                "page_count": 10
+            }
+        }
+
+        # Simulate RabbitMQ properties
+        mock_properties = pika.BasicProperties(
+            correlation_id=str(uuid.uuid4()),
+            content_type="application/json",
+            delivery_mode=2
+        )
+
+        # Call the handle_document method directly
+        service.handle_document(None, None, mock_properties, json.dumps(mock_event))
+
+        return jsonify({"message": "Test event processed."}), 200
+
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}", exc_info=True)
-        return jsonify({
-            "status": "unhealthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "service": "extraction",
-            "error": str(e),
-            "response_time_ms": (time.time() - request.start_time) * 1000 if hasattr(request, 'start_time') else None
-        }), 503
+        logger.error(f"Error processing test event: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 # Create service instance
 rabbitmq_host = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 service = ExtractionService(rabbitmq_host)
 
-# Start consuming events
-service.start()
-
 if __name__ == '__main__':
+    # Start the event consumer in a background thread
+    consumer_thread = threading.Thread(target=service.start, daemon=True)
+    consumer_thread.start()
+
     # Start the Flask app
     port = int(os.getenv('PORT', 8000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)

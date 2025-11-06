@@ -1,7 +1,7 @@
 import os
 from rabbitmq import EventPublisher
 from flask import Flask, request, jsonify, g, send_file, Response # g is for request context
-from datetime import datetime
+from datetime import datetime, timezone
 import json   
 import time
 import uuid # for generating correlation IDs
@@ -11,8 +11,15 @@ from events import EventTypes, DocumentDiscovered
 from logging_config import setup_logger
 from storage import DocumentStorage
 import threading
+import time
+
+
 # Set up logging with service name
 logger = setup_logger('ingestion')
+
+app = Flask(__name__)
+
+
 
 def with_correlation_id(f):
     """Decorator that ensures correlation ID is set for the request."""
@@ -76,12 +83,12 @@ document_discoverer = MARPDocumentDiscoverer(storage_dir)
 
 def publish_document_discovered_event(doc_info: DocumentDiscovered):
     """Publish a DocumentDiscovered event to RabbitMQ using EventPublisher."""
-    correlation_id = doc_info.correlation_id
+    correlation_id = doc_info.correlationId
     result = event_publisher.publish_event(EventTypes.DOCUMENT_DISCOVERED, doc_info, correlation_id=correlation_id)
     if result:
-        logger.info(f"Published document discovery event for {doc_info.document_id}", extra={'correlation_id': correlation_id})
+        logger.info(f"Published document discovery event for {doc_info.payload['documentId']}", extra={'correlation_id': correlation_id})
     else:
-        logger.error(f"Failed to publish DocumentDiscovered event for {doc_info.document_id}", extra={'correlation_id': correlation_id})
+        logger.error(f"Failed to publish DocumentDiscovered event for {doc_info.payload['documentId']}", extra={'correlation_id': correlation_id})
     return result
 
 @app.route('/discovery/start', methods=['POST'])
@@ -119,7 +126,7 @@ def health():
     rabbitmq_status = "healthy" if event_publisher and event_publisher._ensure_connection() else "unhealthy"
     status = {
         "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),  # Use timezone-aware datetime
         "service": "ingestion",
         "dependencies": {
             "rabbitmq": rabbitmq_status
@@ -152,34 +159,24 @@ def handle_error(error):
     }), 500
 
 def run_discovery_background():
-    import threading
-    import time
-
-    def periodic_discovery():
+    def discovery():
+        logger.info('Running auto-discovery on startup and periodically...')
         while True:
-            logger.info('Running periodic document discovery...')
             try:
-                new_documents = document_discoverer.discover_and_process_documents('auto-discovery')
+                logger.info('Running document discovery...')
+                # Generate a random correlation_id for each discovery cycle
+                correlation_id = str(uuid.uuid4())
+                new_documents = document_discoverer.discover_and_process_documents(correlation_id)
                 for doc in new_documents:
                     publish_document_discovered_event(doc)
-                logger.info(f'Periodic discovery complete. Documents found: {len(new_documents)}')
+                logger.info(f'Discovery complete. Documents found: {len(new_documents)}', extra={'correlation_id': correlation_id})
             except Exception as e:
-                logger.error(f'Error during periodic discovery: {e}')
+                logger.error(f"Error during auto-discovery: {str(e)}", extra={'correlation_id': correlation_id})
+            logger.info('Discovery sleeping for 10 minutes...')
             time.sleep(600)  # 10 minutes
 
-    def initial_discovery():
-        logger.info('Running initial document discovery on startup (background)...')
-        try:
-            new_documents = document_discoverer.discover_and_process_documents('startup')
-            for doc in new_documents:
-                publish_document_discovered_event(doc)
-            logger.info(f'Initial discovery complete. Documents found: {len(new_documents)}')
-        except Exception as e:
-            logger.error(f'Error during initial discovery: {e}')
-
-    # Start both initial and periodic discovery in background threads
-    threading.Thread(target=initial_discovery, daemon=True).start()
-    threading.Thread(target=periodic_discovery, daemon=True).start()
+    # Start discovery thread
+    threading.Thread(target=discovery, daemon=True).start()
 
 
 if __name__ == '__main__':

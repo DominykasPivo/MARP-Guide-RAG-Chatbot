@@ -118,8 +118,17 @@ class EventPublisher:
             bool: True if message was published successfully, False otherwise
         """
         # Convert event to dictionary
-        event_data = asdict(event)
-        
+
+        event_data = {
+            'eventType': event.eventType,
+            'eventId': event.eventId,
+            'timestamp': event.timestamp,
+            'correlationId': event.correlationId,
+            'source': event.source,
+            'version': event.version,
+            'payload': event.payload
+        }
+
         # Use explicitly provided correlation_id if given, otherwise use the one from the event
         if correlation_id:
             event_data['correlation_id'] = correlation_id
@@ -130,19 +139,11 @@ class EventPublisher:
                 if not self._ensure_connection():
                     continue
 
-                # Publish the event
-                # Create message without correlation ID in payload
-                message = {
-                    'event_type': event_type.value,
-                    'data': event_data,
-                    'timestamp': datetime.utcnow().isoformat()
-                }
-
                 # Set correlation ID in both message data and properties
                 self.channel.basic_publish(
                     exchange=EXCHANGE_NAME,
                     routing_key=event_type.value,  # Use event_type value as routing key
-                    body=json.dumps(message),
+                    body=json.dumps(event_data),
                     properties=pika.BasicProperties(
                         correlation_id=event_data['correlation_id'],  # Use the same correlation ID
                         delivery_mode=2,  # Make message persistent
