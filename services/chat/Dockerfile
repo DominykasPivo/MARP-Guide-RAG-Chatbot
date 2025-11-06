@@ -1,21 +1,25 @@
+# Base image
 FROM python:3.12-slim
 
+# Set working directory
 WORKDIR /app
 
-# Copy requirements first
-COPY requirements.txt .
+# Copy dependency files from app directory
+COPY app/requirements.txt .
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install curl for healthchecks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
+# Copy the source code into the container
 COPY app/ .
 
-# Expose port
+# Expose the port that the application listens on
 EXPOSE 8000
 
-# Healthcheck
+# Add healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
     CMD curl -f http://localhost:8000/health || exit 1
 

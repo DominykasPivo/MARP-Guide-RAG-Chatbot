@@ -103,10 +103,8 @@ def process_extracted_event(message):
         
         # Check if this is a valid document.extracted event
         data = message.get("data", {})
-
         event_type = data.get("eventType")
 
-        
         if event_type != "DocumentExtracted":
             logger.warning(f"⚠️  Ignoring non-document.extracted event: {event_type}")
             return
@@ -147,9 +145,27 @@ def process_extracted_event(message):
         chunks = chunk_document(text_content, chunk_metadata)
         logger.info(f"📊 Generated {len(chunks)} chunks from document {document_id}", extra={"correlation_id": correlation_id})
         
+        # ADD DEBUG: Check what chunks look like before embedding
+        if chunks:
+            first_chunk = chunks[0]
+            logger.info(f"🔍 First chunk structure: keys={list(first_chunk.keys())}, text_length={len(first_chunk.get('text', ''))}", 
+                       extra={"correlation_id": correlation_id})
+        
         embedded_chunks = embed_chunks(chunks, correlation_id=correlation_id)
-        store_chunks_in_chromadb(embedded_chunks, collection_name="chunks", correlation_id=correlation_id)
-        logger.info(f"✅ Indexed document {document_id} with {len(embedded_chunks)} chunks.", extra={"correlation_id": correlation_id})
+        
+        # ADD DEBUG: Check what embedded chunks look like
+        logger.info(f"📊 Generated {len(embedded_chunks)} embedded chunks", extra={"correlation_id": correlation_id})
+        if embedded_chunks:
+            first_embedded = embedded_chunks[0]
+            logger.info(f"🔍 First embedded chunk: has_text={bool(first_embedded.get('text'))}, has_embedding={bool(first_embedded.get('embedding'))}, has_metadata={bool(first_embedded.get('metadata'))}", 
+                       extra={"correlation_id": correlation_id})
+            if first_embedded.get('embedding'):
+                logger.info(f"🔍 Embedding length: {len(first_embedded['embedding'])}", extra={"correlation_id": correlation_id})
+        
+        # Store in ChromaDB
+        stored_count = store_chunks_in_chromadb(embedded_chunks, collection_name="chunks", correlation_id=correlation_id)
+        logger.info(f"✅ Stored {stored_count} chunks in ChromaDB (out of {len(embedded_chunks)} generated)", 
+                   extra={"correlation_id": correlation_id})
 
         # Publish ChunksIndexed events (one per chunk)
         embedding_model = "all-MiniLM-L6-v2"
@@ -158,6 +174,8 @@ def process_extracted_event(message):
             channel = connection.channel()
             channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='topic', durable=True)
             total_chunks = len(embedded_chunks)
+            
+            published_count = 0
             for chunk in embedded_chunks:
                 chunk_meta = chunk.get("metadata", {})
                 chunk_index = chunk_meta.get("chunk_index", 0)
@@ -171,9 +189,9 @@ def process_extracted_event(message):
                     "version": EVENT_VERSION,
                     "payload": {
                         "documentId": document_id,
-                        "chunkId": chunk_id,  # document_id +_chunk_+chunk_index
+                        "chunkId": chunk_id,
                         "chunkIndex": chunk_index,
-                        "chunkText": chunk["text"][:2000] + "..." if len(chunk["text"]) > 2000 else chunk["text"], # on average 1 chunk token ~ 4 characters // chunking has 400 max_token per chunk
+                        "chunkText": chunk["text"][:2000] + "..." if len(chunk["text"]) > 2000 else chunk["text"],
                         "totalChunks": total_chunks,
                         "embeddingModel": embedding_model,
                         "metadata": {
@@ -184,25 +202,28 @@ def process_extracted_event(message):
                         "indexedAt": datetime.utcnow().isoformat()
                     }
                 }
-                logger.info(f"ChunksIndexed event payload (truncated): {json.dumps(indexed_event)[:500]}", extra={"correlation_id": correlation_id})
                 channel.basic_publish(
                     exchange=EXCHANGE_NAME,
                     routing_key="chunks.indexed",
                     body=json.dumps(indexed_event),
                     properties=pika.BasicProperties(
                         delivery_mode=2,
-                        content_type='application/json'
+                        content_type='application/json',
+                        correlation_id=correlation_id
                     )
                 )
-                logger.info(f"📤 Published ChunksIndexed event for document {document_id}, chunk {chunk_index}", extra={"correlation_id": correlation_id})
+                published_count += 1
+            
             connection.close()
+            logger.info(f"📤 Published {published_count} ChunksIndexed events for document {document_id}", 
+                       extra={"correlation_id": correlation_id})
+            
         except Exception as e:
-            logger.error(f"❌ Failed to publish ChunksIndexed events: {e}", extra={"correlation_id": correlation_id})
+            logger.error(f"❌ Failed to publish ChunksIndexed events: {e}", extra={"correlation_id": correlation_id}, exc_info=True)
 
     except Exception as e:
         logger.error(f"💥 Error indexing document: {e}", exc_info=True)
         raise
-
 
     
 

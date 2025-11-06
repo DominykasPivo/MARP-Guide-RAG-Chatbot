@@ -44,8 +44,8 @@ class ChunksIndexed:
     source: str
     version: str
     payload: Dict 
-    # def to_dict(self):
-    #     return {
+    
+
     #         "eventType": "ChunksIndexed",
     #         "eventId": str(uuid.uuid4()),
     #         "timestamp": datetime.utcnow().isoformat(),
@@ -66,4 +66,3 @@ class ChunksIndexed:
     #             },
     #             "indexedAt": self.indexed_at
     #         }
-    #     }

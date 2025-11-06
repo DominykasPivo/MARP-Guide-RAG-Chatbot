@@ -92,7 +92,7 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - INGESTION_SERVICE_URL=http://ingestion:8000
       - CHROMA_HOST=chromadb
-        - CHROMA_PORT=8000
+      - CHROMA_PORT=8000
     ports:
       - "8003:8000"
     volumes:
@@ -110,7 +110,7 @@ services:
       options:
         max-size: "10m"
 
-  retrieval-service:
+  retrieval:
     build:
       context: ./services/retrieval
       dockerfile: Dockerfile
@@ -119,13 +119,16 @@ services:
     environment:
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - CHROMA_PATH=/chroma/chroma
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
       rabbitmq:
         condition: service_healthy
       chromadb:
-        condition: service_healthy
+        condition: service_started
+    volumes:
+      - chroma_data:/chroma/c
     healthcheck:
       test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health"]
       interval: 30s
@@ -138,7 +141,6 @@ services:
       driver: json-file
       options:
         max-size: "10m"
-  
 
   chat:
     build:
@@ -156,6 +158,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    networks:
+      - app-network
 
 networks:
   app-network:
@@ -163,4 +167,3 @@ networks:
 
 volumes:
   chroma_data:
-

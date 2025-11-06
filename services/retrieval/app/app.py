@@ -1,427 +1,364 @@
-"""Entry point for the retrieval service - Event-driven architecture."""
+"""Retrieval service (matched to indexing architecture)."""
 import json
 import os
 import threading
 import time
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, jsonify, g, request
 from logging_config import setup_logger
 from retriever import get_retriever
 from rabbitmq import EventConsumer
 from events import publish_event, EventTypes
+import chromadb
 
-# Initialize Flask
 app = Flask(__name__)
-
-# Set up logging
 logger = setup_logger('retrieval')
 
 def with_correlation_id(f):
-    """Decorator that ensures correlation ID is set for the request."""
     @wraps(f)
     def decorated(*args, **kwargs):
         request.start_time = time.time()
-        correlation_id = request.headers.get('X-Correlation-ID')
-        if not correlation_id:
-            correlation_id = str(uuid.uuid4())
-        g.correlation_id = correlation_id
+        g.correlation_id = request.headers.get('X-Correlation-ID') or str(uuid.uuid4())
         return f(*args, **kwargs)
     return decorated
 
 class RetrievalService:
-    """Service for retrieving relevant document chunks."""
-    
     def __init__(self, rabbitmq_host: str = 'rabbitmq'):
-        """Initialize the service.
-        
-        Args:
-            rabbitmq_host: Hostname of the RabbitMQ server
-        """
         self.rabbitmq_host = rabbitmq_host
         self.consumer = None
         self.retriever = None
         self.rabbitmq_url = os.getenv("RABBITMQ_URL", f"amqp://guest:guest@{rabbitmq_host}:5672/")
         self.embedding_model = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+        self.collection_name = os.getenv("CHROMA_COLLECTION_NAME", "chunks")
+        self.chromadb_path = os.getenv("CHROMADB_PATH", "/app/data/chromadb")
         
+        logger.info("RetrievalService initialized")
+        logger.info(f"  RabbitMQ URL: {self.rabbitmq_url}")
+        logger.info(f"  Model: {self.embedding_model}")
+        logger.info(f"  ChromaDB path: {self.chromadb_path}")
+        logger.info(f"  Collection: {self.collection_name}")
+
     def _ensure_consumer(self):
-        """Lazy initialization of RabbitMQ consumer."""
         if self.consumer is None:
             self.consumer = EventConsumer(rabbitmq_host=self.rabbitmq_host)
         return self.consumer
-        
+
     def _ensure_retriever(self):
-        """Lazy initialization of retriever."""
         if self.retriever is None:
+            logger.info("Initializing retriever...")
             self.retriever = get_retriever()
+            logger.info("✅ Retriever initialized")
         return self.retriever
-            
+
     def start(self):
-        """Start the service."""
         logger.info("Starting retrieval service...")
-        
-        # Initialize consumer
         consumer = self._ensure_consumer()
-        
-        # Register all subscriptions FIRST
         try:
-            consumer.subscribe('queryreceived', self.handle_query_received)
-            logger.info("Registered QueryReceived subscription")
+            consumer.subscribe('QueryReceived', self.handle_query_received)
+            logger.info("✅ Subscribed to 'queryreceived'")
         except Exception as e:
-            logger.error(f"Failed to register QueryReceived subscription: {e}")
-        
+            logger.error(f"❌ Failed to subscribe 'QueryReceived': {e}")
         try:
-            consumer.subscribe('chunksindexed', self.handle_chunks_indexed)
-            logger.info("Registered ChunksIndexed subscription")
+            consumer.subscribe('ChunksIndexed', self.handle_chunks_indexed)
+            logger.info("✅ Subscribed to 'ChunksIndexed'")
         except Exception as e:
-            logger.error(f"Failed to register ChunksIndexed subscription: {e}")
+            logger.error(f"❌ Failed to subscribe 'chunksindexed': {e}")
         
-        # NOW start consuming (this blocks)
         logger.info("Starting RabbitMQ consumer...")
         consumer.start_consuming()
-    
-    def handle_chunks_indexed(self, ch, method, properties, body):
-        """Handle a ChunksIndexed event from indexing service.
-        
-        This event is emitted once per chunk indexed.
-        
-        Args:
-            ch: Channel
-            method: Method frame
-            properties: Message properties
-            body: Message body
-        """
-        correlation_id = properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
 
+    def handle_chunks_indexed(self, ch, method, properties, body):
+        correlation_id = properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
         try:
-            # Parse the event according to event catalogue schema
             event = json.loads(body)
-            
-            # Validate event structure
             if event.get('eventType') != 'ChunksIndexed':
-                logger.warning(f"Unexpected event type: {event.get('eventType')}", extra={
-                    'correlation_id': correlation_id
-                })
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
-            
+
             payload = event.get('payload', {})
-            
-            # Extract data according to ChunksIndexed schema (per-chunk event)
             document_id = payload.get('documentId')
-            chunk_id = payload.get('chunkId')
             chunk_index = payload.get('chunkIndex', 0)
             total_chunks = payload.get('totalChunks', 1)
-            indexed_at = payload.get('indexedAt', 'unknown')
-            
-            logger.info("Processing ChunksIndexed event", extra={
-                'correlation_id': correlation_id,
-                'document_id': document_id,
-                'chunk_id': chunk_id,
-                'chunk_index': f"{chunk_index + 1}/{total_chunks}",
-                'indexed_at': indexed_at
+
+            logger.info("📨 ChunksIndexed received", extra={
+                "correlation_id": correlation_id,
+                "document_id": document_id,
+                "chunk_index": f"{chunk_index + 1}/{total_chunks}",
             })
-            
-            # Invalidate vector store cache when final chunk is indexed
-            # This ensures we have all chunks before refreshing
-            if chunk_index == total_chunks - 1:  # Zero-indexed, so last chunk
+
+            # Invalidate cache on final chunk (same logic as indexing service pattern)
+            if chunk_index == total_chunks - 1:
                 retriever = self._ensure_retriever()
                 retriever.invalidate_cache()
-                
-                logger.info("Final chunk indexed - vector store cache invalidated", extra={
-                    'correlation_id': correlation_id,
-                    'document_id': document_id,
-                    'total_chunks': total_chunks
-                })
-            else:
-                logger.debug("Intermediate chunk indexed - cache not invalidated yet", extra={
-                    'correlation_id': correlation_id,
-                    'document_id': document_id,
-                    'chunk_index': chunk_index + 1,
-                    'total_chunks': total_chunks
+                logger.info("♻️ Final chunk indexed - cache invalidated", extra={
+                    "correlation_id": correlation_id,
+                    "document_id": document_id,
+                    "total_chunks": total_chunks
                 })
             
             ch.basic_ack(delivery_tag=method.delivery_tag)
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse event JSON: {str(e)}", extra={
-                'correlation_id': correlation_id
-            }, exc_info=True)
+
+        except json.JSONDecodeError:
+            logger.error("Failed to parse ChunksIndexed JSON", extra={"correlation_id": correlation_id}, exc_info=True)
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:
-            logger.error(f"Failed to process ChunksIndexed event: {str(e)}", extra={
-                'correlation_id': correlation_id if 'correlation_id' in locals() else None
-            }, exc_info=True)
+            logger.error(f"ChunksIndexed handler error: {e}", extra={"correlation_id": correlation_id}, exc_info=True)
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-            
-    def handle_query_received(self, ch, method, properties, body):
-        """Handle a QueryReceived event from the event catalogue.
-        
-        Args:
-            ch: Channel
-            method: Method frame
-            properties: Message properties
-            body: Message body
-        """
-        correlation_id = properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
 
+    def handle_query_received(self, ch, method, properties, body):
+        correlation_id = properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
         try:
-            # Parse the event according to event catalogue schema
             event = json.loads(body)
-            
-            # Validate event structure
             if event.get('eventType') != 'QueryReceived':
-                logger.warning(f"Unexpected event type: {event.get('eventType')}", extra={
-                    'correlation_id': correlation_id
-                })
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
-            
+
             payload = event.get('payload', {})
-            
-            # Extract data according to QueryReceived schema
             query_id = payload.get('queryId')
-            user_id = payload.get('userId', 'unknown')
             query_text = payload.get('queryText')
             
             if not query_text:
-                logger.error("Missing queryText in QueryReceived event", extra={
-                    'correlation_id': correlation_id
-                })
+                logger.error("Missing queryText", extra={"correlation_id": correlation_id})
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
 
-            logger.info("Processing QueryReceived event", extra={
-                'correlation_id': correlation_id,
-                'query_id': query_id,
-                'user_id': user_id,
-                'query': query_text
+            logger.info("📨 Processing QueryReceived", extra={
+                "correlation_id": correlation_id,
+                "query_id": query_id,
+                "query": query_text
             })
-            
-            # Retrieve relevant chunks
+
             start_time = time.time()
             retriever = self._ensure_retriever()
             chunks = retriever.search(query_text, top_k=5)
-            processing_time = (time.time() - start_time) * 1000  # ms
-            
-            # ✅ EMIT RetrievalCompleted EVENT (spec requirement)
+            processing_time = (time.time() - start_time) * 1000
+
+            logger.info(f"⏱️ Retrieved {len(chunks)} chunks in {processing_time:.2f}ms", extra={
+                "correlation_id": correlation_id,
+                "query_id": query_id
+            })
+
+            # Publish RetrievalCompleted event
             top_score = chunks[0]['relevanceScore'] if chunks else 0.0
-            retrieval_completed_payload = {
+            publish_event("RetrievalCompleted", {
                 "queryId": query_id,
                 "query": query_text,
                 "resultsCount": len(chunks),
                 "topScore": float(top_score),
                 "latencyMs": int(processing_time)
-            }
-            publish_event("RetrievalCompleted", retrieval_completed_payload, self.rabbitmq_url)
-            
-            # Create ChunksRetrieved payload according to event catalogue
-            payload = {
+            }, self.rabbitmq_url)
+
+            # Publish ChunksRetrieved event
+            out_payload = {
                 "queryId": query_id,
                 "retrievedChunks": chunks,
                 "retrievalModel": self.embedding_model
             }
             
-            # Publish ChunksRetrieved event
-            if publish_event(EventTypes.CHUNKS_RETRIEVED.value, payload, self.rabbitmq_url):
-                logger.info("Published ChunksRetrieved event", extra={
-                    'correlation_id': correlation_id,
-                    'query_id': query_id,
-                    'chunks_count': len(chunks),
-                    'processing_time_ms': processing_time
+            if publish_event(EventTypes.CHUNKS_RETRIEVED.value, out_payload, self.rabbitmq_url):
+                logger.info("✅ Published ChunksRetrieved", extra={
+                    "correlation_id": correlation_id,
+                    "query_id": query_id,
+                    "chunks_count": len(chunks),
+                    "processing_time_ms": processing_time
                 })
                 ch.basic_ack(delivery_tag=method.delivery_tag)
             else:
-                logger.error("Failed to publish ChunksRetrieved event", extra={
-                    'correlation_id': correlation_id,
-                    'query_id': query_id
-                })
+                logger.error("❌ Failed to publish ChunksRetrieved", extra={"correlation_id": correlation_id})
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse event JSON: {str(e)}", extra={
-                'correlation_id': correlation_id
-            }, exc_info=True)
+
+        except json.JSONDecodeError:
+            logger.error("Failed to parse QueryReceived JSON", extra={"correlation_id": correlation_id}, exc_info=True)
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:
-            logger.error(f"Failed to process QueryReceived event: {str(e)}", extra={
-                'correlation_id': correlation_id if 'correlation_id' in locals() else None
-            }, exc_info=True)
+            logger.error(f"QueryReceived handler error: {e}", extra={"correlation_id": correlation_id}, exc_info=True)
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-# Create service instance
 rabbitmq_host = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 service = RetrievalService(rabbitmq_host)
 
-# ✅ START CONSUMER THREAD (runs when Uvicorn imports the module)
 consumer_thread = threading.Thread(target=service.start, daemon=True)
 consumer_thread.start()
-logger.info("RabbitMQ consumer thread started")
+logger.info("✅ RabbitMQ consumer thread started")
 
 @app.route('/', methods=['GET'])
 def home():
-    """Home endpoint."""
-    logger.info('Home endpoint accessed')
     return jsonify({"message": "Retrieval Service is running"}), 200
 
 @app.route('/health', methods=['GET'])
 @with_correlation_id
 def health():
-    """Health check endpoint."""
+    """Health check endpoint (matched to indexing service style)."""
     try:
-        logger.info("Health check requested", extra={
-            'correlation_id': g.correlation_id,
-            'method': request.method,
-            'path': request.path,
-            'remote_addr': request.remote_addr
-        })
-        
-        # Check RabbitMQ connection
+        # Check RabbitMQ
         consumer = service._ensure_consumer()
         rabbitmq_status = "healthy" if consumer.connection and not consumer.connection.is_closed else "unhealthy"
-        
-        status = {
-            "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
+
+        # Check ChromaDB (same approach as indexing)
+        try:
+            chromadb_path = os.getenv("CHROMADB_PATH", "/app/data/chromadb")
+            client = chromadb.PersistentClient(path=chromadb_path)
+            collection_name = os.getenv("CHROMA_COLLECTION_NAME", "chunks")
+            collection = client.get_collection(name=collection_name)
+            doc_count = collection.count()
+            chromadb_status = "healthy"
+            logger.info(f"ChromaDB health check passed: {doc_count} documents")
+        except Exception as e:
+            chromadb_status = "unhealthy"
+            doc_count = 0
+            logger.error(f"ChromaDB health check failed: {e}")
+
+        # Overall status
+        overall_status = "healthy" if rabbitmq_status == "healthy" and chromadb_status == "healthy" else "unhealthy"
+
+        response = {
+            "status": overall_status,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": "retrieval",
             "dependencies": {
-                "rabbitmq": rabbitmq_status
+                "rabbitmq": rabbitmq_status,
+                "chromadb": chromadb_status,
+                "documents_count": doc_count
             }
         }
         
-        response_code = 200 if rabbitmq_status == "healthy" else 503
-        logger.info("Health check completed", extra={
-            'correlation_id': g.correlation_id,
-            'status_code': response_code,
-            'rabbitmq_status': rabbitmq_status
-        })
-        
-        return jsonify(status), response_code
+        status_code = 200 if overall_status == "healthy" else 503
+        return jsonify(response), status_code
         
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}", extra={
-            'correlation_id': g.correlation_id
-        }, exc_info=True)
+        logger.error(f"Health check failed: {e}", exc_info=True)
         return jsonify({
             "status": "unhealthy",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "service": "retrieval",
-            "error": str(e)
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }), 503
+
+@app.route('/debug/vector-store', methods=['GET'])
+@with_correlation_id
+def debug_vector_store():
+    """Debug endpoint to inspect vector store state."""
+    try:
+        retriever = service._ensure_retriever()
+        if not retriever.collection:
+            return jsonify({"status": "not_initialized", "error": "Collection not initialized"}), 500
+
+        count = retriever.collection.count()
+        sample_results = []
+        
+        if count > 0:
+            results = retriever.collection.get(limit=5, include=['documents', 'metadatas'])
+            for i in range(len(results.get('ids', []))):
+                sample_results.append({
+                    "id": results['ids'][i],
+                    "text_preview": (results['documents'][i] or "")[:120],
+                    "metadata": results['metadatas'][i]
+                })
+
+        return jsonify({
+            "status": "healthy" if count > 0 else "empty",
+            "collection_name": retriever.collection_name,
+            "chromadb_path": retriever.chromadb_path,
+            "embedding_model": retriever.embedding_model_name,
+            "total_documents": count,
+            "sample_documents": sample_results,
+            "has_documents": count > 0
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Debug endpoint failed: {e}", exc_info=True)
+        return jsonify({"status": "error", "error": str(e)}), 500
 
 @app.route('/search', methods=['POST'])
 @with_correlation_id
 def search():
-    """✅ HTTP REST endpoint for search (SPEC REQUIREMENT).
-    
-    Required by specification:
-    - Accept POST /search with JSON body
-    - Return results in specified format
-    - Emit RetrievalCompleted event
-    """
+    """Direct search endpoint (bypasses events)."""
     try:
         data = request.get_json()
-        
-        # Input validation
         if not data:
-            logger.error("No JSON data provided", extra={
-                'correlation_id': g.correlation_id
-            })
             return jsonify({"error": "Request must include JSON data"}), 400
-        
+            
         query = data.get('query')
-        
-        # Validate query parameter
-        if query is None:
-            logger.error("Missing query parameter", extra={
-                'correlation_id': g.correlation_id
-            })
+        if not isinstance(query, str) or not query.strip():
             return jsonify({"error": "Missing required parameter: query"}), 400
-        
-        if not isinstance(query, str):
-            logger.error("Invalid query type", extra={
-                'correlation_id': g.correlation_id,
-                'query_type': type(query).__name__
-            })
-            return jsonify({"error": "Query must be a string"}), 400
-        
-        if not query.strip():
-            logger.error("Empty query parameter", extra={
-                'correlation_id': g.correlation_id
-            })
-            return jsonify({"error": "Query parameter cannot be empty"}), 400
-        
-        # Validate top_k parameter
+            
         top_k = data.get('top_k', 5)
         if not isinstance(top_k, int) or top_k < 1 or top_k > 100:
-            logger.warning("Invalid top_k value, using default", extra={
-                'correlation_id': g.correlation_id,
-                'provided_top_k': top_k
-            })
             top_k = 5
-        
-        logger.info(f"Search request received", extra={
-            'correlation_id': g.correlation_id,
-            'query': query,
-            'top_k': top_k
-        })
-        
-        # Perform search
+
         start_time = time.time()
         retriever = service._ensure_retriever()
         chunks = retriever.search(query, top_k)
-        processing_time = (time.time() - start_time) * 1000  # ms
-        
-        # ✅ EMIT RetrievalCompleted EVENT (spec requirement)
+        processing_time = (time.time() - start_time) * 1000
+
+        # Publish analytics event
         top_score = chunks[0]['relevanceScore'] if chunks else 0.0
-        retrieval_completed_payload = {
+        publish_event("RetrievalCompleted", {
             "queryId": g.correlation_id,
             "query": query,
             "resultsCount": len(chunks),
             "topScore": float(top_score),
             "latencyMs": int(processing_time)
-        }
-        event_published = publish_event("RetrievalCompleted", retrieval_completed_payload, service.rabbitmq_url)
-        
-        if not event_published:
-            logger.warning("Failed to publish RetrievalCompleted event", extra={
-                'correlation_id': g.correlation_id
-            })
+        }, service.rabbitmq_url)
 
-        logger.info(f"Search completed successfully", extra={
-            'correlation_id': g.correlation_id,
-            'results_count': len(chunks),
-            'processing_time_ms': processing_time
-        })
+        # Format response
+        formatted_results = [{
+            "text": c.get('text', ''),
+            "metadata": {
+                "title": c.get('title', 'MARP Document'),
+                "page": c.get('page', 1),
+                "url": c.get('url', '')
+            },
+            "score": c.get('relevanceScore', 0.0)
+        } for c in chunks]
 
-        # ✅ RETURN SPEC-COMPLIANT FORMAT
-        # Format: { "query": str, "results": [{"text": str, "metadata": {...}, "score": float}] }
-        formatted_results = []
-        for chunk in chunks:
-            formatted_results.append({
-                "text": chunk.get('text', ''),
-                "metadata": {
-                    "title": chunk.get('title', 'MARP Document'),
-                    "page": chunk.get('page', 1),
-                    "url": chunk.get('url', 'https://marp.edu')
-                },
-                "score": chunk.get('relevanceScore', 0.0)
-            })
-
-        return jsonify({
-            "query": query,
-            "results": formatted_results
-        }), 200
+        return jsonify({"query": query, "results": formatted_results}), 200
         
     except Exception as e:
-        logger.error(f"Search failed: {str(e)}", extra={
-            'correlation_id': g.correlation_id,
-            'error': str(e)
-        }, exc_info=True)
+        logger.error(f"Search failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-# For local testing with python app.py (optional, for debugging)
+@app.route('/query', methods=['POST'])
+@with_correlation_id
+def query():
+    """Alternative query endpoint."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Request must include JSON data"}), 400
+            
+        query_text = data.get('query')
+        if not query_text:
+            return jsonify({"error": "Query is required"}), 400
+            
+        top_k = data.get('top_k', 5)
+
+        start_time = time.time()
+        retriever = service._ensure_retriever()
+        chunks = retriever.search(query_text, top_k)
+        processing_time = (time.time() - start_time) * 1000
+
+        formatted_chunks = [{
+            "text": c.get('text', ''),
+            "title": c.get('title', 'Unknown'),
+            "page": c.get('page', 0),
+            "url": c.get('url', '')
+        } for c in chunks]
+
+        logger.info("Query completed", extra={
+            "correlation_id": g.correlation_id,
+            "results_count": len(formatted_chunks),
+            "processing_time_ms": processing_time
+        })
+
+        return jsonify({"query": query_text, "chunks": formatted_chunks}), 200
+        
+    except Exception as e:
+        logger.error(f"Query failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
+    logger.info(f"Starting retrieval service on port {port}")
     app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)

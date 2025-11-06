@@ -2,7 +2,7 @@ import os
 import time
 from typing import List
 
-from services.chat.app.models import Chunk, Citation, ChatRequest, ChatResponse
+from models import Chunk, Citation, ChatRequest, ChatResponse
 from services.chat.app.rabbitmq import publish_rag_job, poll_rag_result
 
 # The System Instruction guides the LLM to use the context and avoid hallucination.
