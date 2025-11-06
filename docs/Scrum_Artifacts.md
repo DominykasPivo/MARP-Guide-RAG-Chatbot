@@ -42,4 +42,3 @@ This backlog contains all known features, user stories, and technical debt requi
 
 * **Dependency Tracking:** We underestimated the time needed for the RetrievalService (S1-03) because it relied on the correct ChromaDB volume setup from the Docker work (S1-01). **Action:** Clearly document inter-service setup dependencies in the backlog item notes.  
 * **Sequential Testing:** We waited too long to test the end-to-end ChatService flow (S1-05). **Action:** Next sprint, prioritize setting up mock services for early integration testing (e.g., a mock AuthService).  
-* **PostgreSQL:** We completed the basic DB setup (S1-08) but didn't link it to a service. **Action:** Integrate the PostgreSQL connection into a service early in Sprint 2 to validate connectivity before starting the Auth feature (PBL-06)
