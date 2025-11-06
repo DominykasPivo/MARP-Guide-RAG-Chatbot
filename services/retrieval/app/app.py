@@ -61,7 +61,7 @@ class RetrievalService:
         except Exception as e:
             logger.error(f"❌ Failed to subscribe 'QueryReceived': {e}")
         try:
-            consumer.subscribe('ChunksIndexed', self.handle_chunks_indexed)
+            consumer.subscribe('chunks.indexed', self.handle_chunks_indexed)
             logger.info("✅ Subscribed to 'ChunksIndexed'")
         except Exception as e:
             logger.error(f"❌ Failed to subscribe 'chunksindexed': {e}")

@@ -204,7 +204,7 @@ def process_extracted_event(message):
                 }
                 channel.basic_publish(
                     exchange=EXCHANGE_NAME,
-                    routing_key="chunks.indexed",
+                    routing_key="ChunksIndexed",
                     body=json.dumps(indexed_event),
                     properties=pika.BasicProperties(
                         delivery_mode=2,
