@@ -1,10 +1,13 @@
 ### Responsibility:
-Extracts raw text from ingested documents and preprocesses it into clean, chunkable text blocks.
+Extracts raw text from PDFs and cleans it for indexing service
 
 ### Data Owned:
-
-*   Processing metadata (chunk size, token count).
-*   Extracted text chunks (temporary store).
+*   Extracted document metadata (title, page_count, source_url - if available from the PDF)
 
 ### API Endpoints:
--   [GET] /extract/status/{doc_id} – Get extraction job status.
+-   [GET]  / – Home/status endpoint
+-   [GET]  /health – Health check by using the RabbitMQ status
+-   [POST] /extract - Extract text from a given document (REQUIRES document file_path IN JSON Format)
+
+
+

@@ -3,10 +3,13 @@ Discovers, downloads, and registers academic regulation documents from Lancaster
 
 ### Data Owned:
 *   PDF document storage
-*   Document metadata (title, source URL, discovery date, last modified)
-*   Document discovery cache
+*   Document metadata (document_id, source_url, indexedAt, hash, correlation_id)
+*   Document discovery cache (JSON File)
 
 ### API Endpoints:
--   [GET] / – Basic health check endpoint
--   [GET] /health – Detailed health check with RabbitMQ status
--   [POST] /discovery/start – Trigger discovery of new/updated MARP documents
+-   [GET]  / – Home/status endpoint
+-   [GET]  /health – Health check by using the RabbitMQ status
+-   [POST] /discovery/start – Triggers the discovery of new/updated/deleted PDFs 
+-   [GET]  /documents - lists all the documents in the discovery cache (JSON file)
+-   [GET]  /documents/<document_id> - downloads a specific document by giving its document_id 
+

@@ -15,10 +15,8 @@ class DocumentStorage:
         documents_path = os.path.join(base_path, 'documents')
         os.makedirs(documents_path, exist_ok=True)
         self.pdfs_path = os.path.join(documents_path, 'pdfs')
-        self.metadata_path = os.path.join(documents_path, 'metadata')
         self.index_path = os.path.join(documents_path, 'discovered_docs.json')
         os.makedirs(self.pdfs_path, exist_ok=True)
-        os.makedirs(self.metadata_path, exist_ok=True)
         self._load_index()
 
     def get_document_path(self, document_id: str) -> str | None:
@@ -49,47 +47,24 @@ class DocumentStorage:
                 json.dump(self.index, f, indent=2)
 
     def store_document(self, document_id: str, pdf_content: bytes, metadata: Dict) -> bool:
-        """Store a PDF and its metadata, and update the index, preserving existing fields like 'hash'."""
+        """Store a PDF and update the index with basic info (url, hash, date, correlation_id)."""
         with self._lock:
             try:
+                # Ensure the pdfs directory exists (recreate if deleted)
+                os.makedirs(self.pdfs_path, exist_ok=True)
                 pdf_path = os.path.join(self.pdfs_path, f"{document_id}.pdf")
                 with open(pdf_path, 'wb') as f:
                     f.write(pdf_content)
-                meta_path = os.path.join(self.metadata_path, f"{document_id}.json")
-                # Build the metadata dict to match discovered_docs.json entry
-                meta_entry = {
-                    'title': metadata.get('title'),
+                # Update the index with basic info
+                self.index[document_id] = {
+                    'pdf': os.path.relpath(pdf_path, self.base_path),
                     'url': metadata.get('url'),
-                    'date': metadata.get('date'),  # Updated to match 'date' field from discoverer.py
-                    'last_modified': metadata.get('last_modified'),
-                    'page_count': metadata.get('page_count'),
                     'hash': metadata.get('hash'),
-                    'correlation_id': metadata.get('correlation_id'),
+                    'date': metadata.get('date'),
+                    'correlation_id': metadata.get('correlation_id')
                 }
-                # Remove keys with None values for cleanliness
-                meta_entry = {k: v for k, v in meta_entry.items() if v is not None}
-                with open(meta_path, 'w') as f:
-                    json.dump(meta_entry, f, indent=2)
-                # Preserve existing fields (like 'hash') if present, but do not merge duplicate keys
-                existing_entry = self.index.get(document_id, {})
-                new_entry = {}
-                # Only set each key once, in priority order: new metadata > existing entry > default
-                new_entry['pdf'] = os.path.relpath(pdf_path, self.base_path)
-                new_entry['metadata'] = os.path.relpath(meta_path, self.base_path)
-                new_entry['title'] = metadata.get('title') or existing_entry.get('title', '')
-                new_entry['created_at'] = metadata.get('discovered_at') or existing_entry.get('created_at', '')
-                new_entry['last_modified'] = metadata.get('last_modified') or existing_entry.get('last_modified', '')
-                new_entry['hash'] = metadata.get('hash') or existing_entry.get('hash', '')
-                # Always include page_count and correlation_id, even if None
-                new_entry['page_count'] = metadata.get('page_count')
-                new_entry['correlation_id'] = metadata.get('correlation_id')
-                # If there are any other fields in existing_entry not set above, add them (but don't overwrite)
-                for k, v in existing_entry.items():
-                    if k not in new_entry:
-                        new_entry[k] = v
-                self.index[document_id] = new_entry
                 self._save_index()
-                logger.info(f"Stored document {document_id} (PDF, metadata, index updated)")
+                logger.info(f"Stored document {document_id} (PDF, index updated)")
                 return True
             except Exception as e:
                 logger.error(f"Error storing document {document_id}: {e}")
@@ -109,19 +84,7 @@ class DocumentStorage:
                 logger.error(f"Error reading PDF for {document_id}: {e}")
                 return None
 
-    def get_metadata(self, document_id: str) -> Optional[Dict]:
-        """Retrieve the metadata for a document."""
-        with self._lock:
-            entry = self.index.get(document_id)
-            if not entry:
-                return None
-            meta_path = os.path.join(self.base_path, entry['metadata'])
-            try:
-                with open(meta_path, 'r') as f:
-                    return json.load(f)
-            except Exception as e:
-                logger.error(f"Error reading metadata for {document_id}: {e}")
-                return None
+    # get_metadata removed: per-document metadata files are no longer used.
 
     def list_documents(self) -> List[Dict]:
         """List all documents with their metadata from the index."""
@@ -135,21 +98,18 @@ class DocumentStorage:
             ]
 
     def delete_document(self, document_id: str) -> bool:
-        """Delete a document's PDF, metadata, and index entry."""
+        """Delete a document's PDF and index entry."""
         with self._lock:
             entry = self.index.get(document_id)
             if not entry:
                 return False
             pdf_path = os.path.join(self.base_path, entry['pdf'])
-            meta_path = os.path.join(self.base_path, entry['metadata'])
             try:
                 if os.path.exists(pdf_path):
                     os.remove(pdf_path)
-                if os.path.exists(meta_path):
-                    os.remove(meta_path)
                 del self.index[document_id]
                 self._save_index()
-                logger.info(f"Deleted document {document_id} (PDF, metadata, index entry)")
+                logger.info(f"Deleted document {document_id} (PDF, index entry)")
                 return True
             except Exception as e:
                 logger.error(f"Error deleting document {document_id}: {e}")

@@ -129,8 +129,6 @@ class ExtractionService:
             logger.info("Processing document", extra={
                 'correlation_id': discovered.correlationId,
                 'document_id': discovered.payload['documentId'],
-                'title': discovered.payload['title'],
-                'pageCount': discovered.payload['pageCount'],
                 'source_url': discovered.payload['sourceUrl'],
                 'discovered_at': discovered.payload['discoveredAt']
             })
@@ -188,7 +186,7 @@ class ExtractionService:
                 logger.info("Document extraction completed", extra={
                     'correlation_id': correlation_id,
                     'document_id': discovered.payload['documentId'],
-                    'title': discovered.payload['title'],
+                    'title':  metadata.get("title", "Unknown Title"),
                     'page_count': page_count,
                     'processing_time_ms': processing_time
                 })
@@ -235,38 +233,57 @@ def health():
     # Return status with appropriate HTTP code
     return jsonify(status), 200 if rabbitmq_status == "healthy" else 503
 
-@app.route('/test/discover', methods=['POST'])
-def test_discover():
-    """Simulate a document.discovered event."""
+
+# Example curl command to test the /extract endpoint //   
+#curl -X POST http://localhost:8002/extract -H "Content-Type: application/json" -d "{\"filePath\": \"/data/documents/pdfs/aed7db9c7ebfd737f4c508471b776f3b.pdf\", \"sourceUrl\": \"https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/CDDA.pdf\", \"documentId\": \"aed7db9c7ebfd737f4c508471b776f3b\"}"
+@app.route('/extract', methods=['POST'])
+@with_correlation_id
+def extract_document_api():
+    """API endpoint to extract text and metadata from a given document file path and sourceUrl.
+    
+        Expects a JSON payload with the following fields:
+
+        Required:
+        - filePath: The path to the document file to be processed.
+
+        Optional:
+        - sourceUrl: The URL of the source document (if applicable).
+        - documentId: A unique identifier for the document.
+    """
+    data = request.get_json()
+    file_path = data.get('filePath')
+    source_url = data.get('sourceUrl')
+    if not file_path:
+        return jsonify({'error': 'filePath is required'}), 400
     try:
-        # Mock data for a discovered document
-        mock_event = {
-            "data": {
-                "document_id": "test-doc-123",
-                "title": "Test Document",
-                "source_url": "http://example.com/test.pdf",
-                "file_path": "/data/test.pdf",
-                "discovered_at": datetime.utcnow().isoformat(),
-                "last_modified": datetime.utcnow().isoformat(),
-                "page_count": 10
-            }
+        start_time = time.time()
+        result = service.extractor.extract_document(file_path, source_url)
+        extracted_file_time = datetime.now(timezone.utc).isoformat()
+        processing_time = (time.time() - start_time) * 1000  # ms
+        metadata = result.get('metadata', {})
+        fileType = service.extractor.check_file_type(file_path)
+        fileType = fileType.split('/')[-1]
+        metadata_dict = {"sourceUrl": source_url or "Unknown Source"}
+        if "title" in metadata:
+            metadata_dict["title"] = metadata["title"]
+        if "pageCount" in metadata:
+            metadata_dict["pageCount"] = metadata["pageCount"]
+        response = {
+            "documentId": data.get('documentId'),
+            "textContent": "\n\n".join(result.get("page_texts", [])),
+            "fileType": fileType,
+            "metadata": metadata_dict,
+            "extractedAt": extracted_file_time,
+            "processingTimeMs": processing_time
         }
-
-        # Simulate RabbitMQ properties
-        mock_properties = pika.BasicProperties(
-            correlation_id=str(uuid.uuid4()),
-            content_type="application/json",
-            delivery_mode=2
-        )
-
-        # Call the handle_document method directly
-        service.handle_document(None, None, mock_properties, json.dumps(mock_event))
-
-        return jsonify({"message": "Test event processed."}), 200
-
+        return jsonify(response)
     except Exception as e:
-        logger.error(f"Error processing test event: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error extracting document: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+
+
 
 # Create service instance
 rabbitmq_host = os.getenv('RABBITMQ_HOST', 'rabbitmq')

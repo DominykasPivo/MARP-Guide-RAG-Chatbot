@@ -23,8 +23,6 @@ class DocumentDiscovered:
 
 # "payload": {
 #         "documentId": "string",
-#         "title": "string",
-#         "pageCount": "integer",
 #         "sourceUrl": "string",
 #         "filePath": "string",
 #         "discoveredAt": "string"

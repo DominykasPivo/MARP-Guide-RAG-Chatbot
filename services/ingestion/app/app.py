@@ -39,7 +39,9 @@ def with_correlation_id(f):
 
 app = Flask(__name__)
 
-# Initialize storage 
+
+# Ensure /data directory exists before initializing storage
+os.makedirs("/data", exist_ok=True)
 storage = DocumentStorage("/data")
 
 @app.route('/documents', methods=['GET'])
@@ -47,10 +49,6 @@ storage = DocumentStorage("/data")
 def list_documents():
     """List all documents with their metadata."""
     documents = storage.list_documents()
-    for doc in documents:
-        meta = storage.get_metadata(doc['document_id'])
-        if meta:
-            doc.update(meta)
     accept = request.headers.get('Accept', '')
     is_browser = getattr(request.user_agent, 'browser', None)
     # If browser or JSON requested, use Flask jsonify (compact)
@@ -60,10 +58,19 @@ def list_documents():
     pretty = json.dumps({'documents': documents}, indent=2, ensure_ascii=False)
     return Response(pretty, mimetype='application/json')
 
+
+
+
 @app.route('/documents/<document_id>', methods=['GET'])
 @with_correlation_id
 def get_document(document_id: str):
-    """Get a document's PDF content."""
+    """ Downloads the document
+    
+    Example usage:
+        >curl http://localhost:8001/documents/aed7db9c7ebfd737f4c508471b776f3b --output mydoc.pdf
+  
+    """
+
     pdf_bytes = storage.get_pdf(document_id)
     if not pdf_bytes:
         return jsonify({'error': 'Document not found'}), 404

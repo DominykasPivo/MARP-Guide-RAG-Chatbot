@@ -73,6 +73,15 @@ def health():
 
 @app.route('/index', methods=['POST'])
 def index():
+    """Index a document (requires a DocumentExtracted event payload)
+        Args:
+        > payload{extractedAt, metadata{title, sourceUrl, fileType, pageCount}, textContent, documentId}, version,
+        > source, correlationId, timestamp, eventId, eventType
+
+        Example terminal command to test the /index endpoint:
+         >curl -X POST http://localhost:8003/index -H "Content-Type: application/json" -d "{\"eventType\":\"DocumentExtracted\",\"eventId\":\"test-id\",\"timestamp\":\"2025-11-06T12:00:00Z\",\"correlationId\":\"test-corr-id\",\"source\":\"test\",\"version\":\"1.0\",\"payload\":{\"documentId\":\"test-doc-1\",\"textContent\":\"This is a test document for direct indexing.\",\"metadata\":{\"title\":\"Test Doc\",\"sourceUrl\":\"http://example.com\",\"fileType\":\"txt\",\"pageCount\":1},\"extractedAt\":\"2025-11-06T12:00:00Z\"}}"
+    
+    """
     data = request.get_json()
     try:
         process_extracted_event({"data": data})
@@ -80,11 +89,6 @@ def index():
     except Exception as e:
         logger.error(f"Indexing failed: {e}", exc_info=True)
         return jsonify({"message": "Indexing failed", "error": str(e)}), 500
-
-
-""""Example terminal command to test the /index endpoint:"""
-# curl -X POST http://localhost:8003/index -H "Content-Type: application/json" -d "{\"eventType\":\"DocumentExtracted\",\"eventId\":\"test-id\",\"timestamp\":\"2025-11-06T12:00:00Z\",\"correlationId\":\"test-corr-id\",\"source\":\"test\",\"version\":\"1.0\",\"payload\":{\"documentId\":\"test-doc-1\",\"textContent\":\"This is a test document for direct indexing.\",\"metadata\":{\"title\":\"Test Doc\",\"sourceUrl\":\"http://example.com\",\"fileType\":\"txt\",\"pageCount\":1},\"extractedAt\":\"2025-11-06T12:00:00Z\"}}"
-
 
 @app.route('/', methods=['GET'])
 def home():
