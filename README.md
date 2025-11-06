@@ -103,11 +103,14 @@ Execute the following command in the root directory where your docker-compose.ym
 
 #Step 1 Building
 
-#docker-compose build ingestion extraction indexing --no-cache
+docker-compose build ingestion extraction indexing --no-cache
 
 #Step 2 Running
 
 docker-compose up ingestion extraction indexing -d
+
+
+
 
 
 
@@ -168,6 +171,7 @@ This stack outlines the dependencies for the two critical microservices responsi
 |  | **beautifulsoup4** | 4.13.0 **Latest** | HTML/XML Parser: Typically used for web scraping or processing structured data like HTML/XML that may be part of the ingestion flow (though less common for raw PDF ingestion, it's a general-purpose parsing utility). |
 |  | **lxml** | 4.9.3  | XML/HTML Processor: A high-performance parser often used in conjunction with beautifulsoup4 or for handling XML/HTML data sources to be ingested. |
 |  | **urllib3** | 1.21.1 | HTTP Client Library: Provides low-level HTTP client functionality; often used as a dependency by packages like requests to manage connection pooling and retries. |
+
 
 
 
