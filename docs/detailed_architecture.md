@@ -1,6 +1,14 @@
 ## **Detailed Architecture and Communication Patterns**
 
+**The final, complete architecture diagram is maintained externally in Draw.io.**
+
+**Please paste the public link or image markdown for your Draw.io diagram immediately below this line:**
+
+[https://drive.google.com/file/d/1GVf\_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing](https://drive.google.com/file/d/1GVf_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing)
+
+
 This document details the microservice boundaries and communication flows for the Chat AI Application (V2), utilizing **Synchronous REST** for all communication paths (Chat and Document Ingestion).
+
 
 ### **1\. Synchronous Flow: User Chat Request (RAG)**
 

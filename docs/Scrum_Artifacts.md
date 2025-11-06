@@ -24,7 +24,7 @@ This backlog contains all known features, user stories, and technical debt requi
 | **S1-01** | Define and test docker-compose.yml for all 9 services (incl. DBs/Broker). | PBL-02 | DONE | Confirmed services can communicate internally via network. |
 | **S1-02** | Implement API Gateway (Flask) with basic /health endpoint and routing structure. | PBL-03 | DONE | Routing established for /chat. |
 | **S1-03** | Implement RetrievalService to connect to ChromaDB and perform simple vector query. | PBL-01 | DONE | Need to finalize ChromaDB connection string within container environment. |
-| **S1-04** | Implement Orchestrator (Flask) with placeholder endpoint for single LLM call. | PBL-01 | DONE | Successful connection to external LLM API (e.g., Gemini). |
+| **S1-04** | Implement Orchestrator (Flask) with placeholder endpoint for single LLM call. | PBL-01 | In Progress | Successful connection to external LLM API (e.g., Gemini). |
 | **S1-05** | Implement ChatService to orchestrate RAG: Query \-\> Retrieval \-\> Orchestrator \-\> Response. | PBL-01 | DONE | Dependent on S1-03 and S1-04 completion. |
 | **S1-06** | Develop basic React frontend UI for chat input and display. | PBL-05 | DONE | Focusing on layout and API connectivity. |
 | **S1-07** | Integrate API Gateway with React frontend. | PBL-03, PBL-05 | DONE | Successful HTTP communication confirmed. |
@@ -42,4 +42,3 @@ This backlog contains all known features, user stories, and technical debt requi
 
 * **Dependency Tracking:** We underestimated the time needed for the RetrievalService (S1-03) because it relied on the correct ChromaDB volume setup from the Docker work (S1-01). **Action:** Clearly document inter-service setup dependencies in the backlog item notes.  
 * **Sequential Testing:** We waited too long to test the end-to-end ChatService flow (S1-05). **Action:** Next sprint, prioritize setting up mock services for early integration testing (e.g., a mock AuthService).  
-* **PostgreSQL:** We completed the basic DB setup (S1-08) but didn't link it to a service. **Action:** Integrate the PostgreSQL connection into a service early in Sprint 2 to validate connectivity before starting the Auth feature (PBL-06)
