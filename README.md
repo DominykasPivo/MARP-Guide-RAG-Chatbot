@@ -8,7 +8,7 @@ RAG Chatbot with Microservices and Event-Driven Architecture
 Building a chat application that answers questions about Lancaster University’s Manual of Academic Regulations and Procedures (MARP). The answers must be derived from the processed MARP PDF documents and must be properly cited
 (with title, page number, and link), and presented in an understandable manner.
 
-# *Chat AI Application*
+## **Chat AI Application**
 
 This application is an advanced chatbot that can hold intelligent conversations, remember what you've talked about, and provide answers from multiple AI models at once.
 
@@ -163,6 +163,7 @@ This stack outlines the dependencies for the two critical microservices responsi
 |  | **beautifulsoup4** | 4.13.0 **Latest** | HTML/XML Parser: Typically used for web scraping or processing structured data like HTML/XML that may be part of the ingestion flow (though less common for raw PDF ingestion, it's a general-purpose parsing utility). |
 |  | **lxml** | 4.9.3  | XML/HTML Processor: A high-performance parser often used in conjunction with beautifulsoup4 or for handling XML/HTML data sources to be ingested. |
 |  | **urllib3** | 1.21.1 | HTTP Client Library: Provides low-level HTTP client functionality; often used as a dependency by packages like requests to manage connection pooling and retries. |
+
 
 
 
