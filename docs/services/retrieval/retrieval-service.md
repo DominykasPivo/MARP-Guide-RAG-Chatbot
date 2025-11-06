@@ -1,3 +1,5 @@
+### Server Name: retrieval
+
 ### Responsibility:
 Retrieves the most relevant top-k document snippets based on query embeddings from the vector store.
 
@@ -8,5 +10,6 @@ Retrieves the most relevant top-k document snippets based on query embeddings fr
 
 
 ### API Endpoints:
--   [POST] /retrieve – Retrieve top-k relevant snippets for a query embedding.
--   [GET] /retrieve/stats – Retrieve retrieval performance and usage metrics.
+-   [GET]  / – Home/status endpoint
+-   [GET]  /health – Health check by using the RabbitMQ status
+-   [GET] /search – Retrieve top-k relevant snippets for a query embedding.

@@ -1,3 +1,5 @@
+### Server Name: indexing
+
 ### Responsibility:
 Embeds extracted text into vector representations and stores them in a vector database.
 
@@ -16,4 +18,3 @@ Embeds extracted text into vector representations and stores them in a vector da
         > source, correlationId, timestamp, eventId, eventType
 -   [GET]  /debug/queue – Debug: show RabbitMQ event queue status
 -   [GET]  /debug/chunks – Return all chunks stored in the ChromaDB collection for inspection.
-

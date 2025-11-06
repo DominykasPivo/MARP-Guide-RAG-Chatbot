@@ -1,3 +1,5 @@
+### Server Name: ingestion
+
 ### Responsibility:
 Discovers, downloads, and registers academic regulation documents from Lancaster University's MARP website.
 
@@ -12,4 +14,3 @@ Discovers, downloads, and registers academic regulation documents from Lancaster
 -   [POST] /discovery/start – Triggers the discovery of new/updated/deleted PDFs 
 -   [GET]  /documents - lists all the documents in the discovery cache (JSON file)
 -   [GET]  /documents/<document_id> - downloads a specific document by giving its document_id 
-
