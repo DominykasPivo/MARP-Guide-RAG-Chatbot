@@ -10,9 +10,15 @@ from rabbitmq import EventPublisher
 from discoverer import MARPDocumentDiscoverer
 from events import publish_document_discovered_event
 from storage import DocumentStorage
+import sys
 
 logger = logging.getLogger('ingestion')
-logging.basicConfig(level=logging.INFO)
+
+logging.basicConfig(
+    level=logging.INFO,  # or DEBUG for more detail
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    stream=sys.stdout
+)
 
 
 # Ensure /data directory exists before initializing storage

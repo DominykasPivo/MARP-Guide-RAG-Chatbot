@@ -12,6 +12,33 @@ services:
     networks:
       - app-network
 
+  extraction:
+    build:
+      context: ./services/extraction
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - INGESTION_SERVICE_URL=http://ingestion:8000
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+
   ingestion:
     build:
       context: ./services/ingestion
