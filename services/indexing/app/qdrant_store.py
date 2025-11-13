@@ -35,14 +35,11 @@ def store_chunks_in_qdrant(chunks, collection_name=QDRANT_COLLECTION, correlatio
         )
 
     points = []
+    import uuid
     for idx, chunk in enumerate(chunks):
         meta = chunk.get("metadata", {})
-        doc_id = meta.get("document_id")
-        chunk_index = meta.get("chunk_index", idx)
-        if doc_id is not None:
-            chunk_id = f"{doc_id}_chunk_{chunk_index}"
-        else:
-            chunk_id = str(idx)
+        # Always generate a new UUID for each chunk's point ID
+        chunk_id = str(uuid.uuid4())
         point = PointStruct(
             id=chunk_id,
             vector=chunk["embedding"],
@@ -54,7 +51,15 @@ def store_chunks_in_qdrant(chunks, collection_name=QDRANT_COLLECTION, correlatio
         points.append(point)
 
     if points:
-        client.upsert(collection_name=collection_name, points=points)
-        logger.info(f"Stored {len(points)} new chunks in Qdrant.", extra={"correlation_id": correlation_id})
+        # Debug: print the first point's structure and vector length
+        first_point = points[0]
+        logger.info(f"First Qdrant point: id={first_point.id}, vector_len={len(first_point.vector)}, payload_keys={list(first_point.payload.keys())}")
+        logger.info(f"First vector sample: {first_point.vector[:10]}")
+        logger.info(f"First payload: {first_point.payload}")
+        try:
+            client.upsert(collection_name=collection_name, points=points)
+            logger.info(f"Stored {len(points)} new chunks in Qdrant.", extra={"correlation_id": correlation_id})
+        except Exception as e:
+            logger.error(f"❌ Qdrant upsert failed: {e}", exc_info=True)
     else:
         logger.info(f"No new chunks to add.", extra={"correlation_id": correlation_id})
