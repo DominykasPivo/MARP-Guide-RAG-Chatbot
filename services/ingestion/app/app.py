@@ -2,6 +2,7 @@ import os
 import threading
 import uuid
 import time
+import aiofiles
 import logging
 from datetime import datetime, timezone
 from fastapi import FastAPI, BackgroundTasks, HTTPException
@@ -11,6 +12,7 @@ from discoverer import MARPDocumentDiscoverer
 from events import publish_document_discovered_event
 from storage import DocumentStorage
 import sys
+
 
 logger = logging.getLogger('ingestion')
 
@@ -50,15 +52,17 @@ async def list_documents():
 
 @app.get('/documents/{document_id}')
 async def get_document(document_id: str):
-    """Download the document as PDF."""
-    pdf_bytes = storage.get_pdf(document_id)
-    if not pdf_bytes:
+    """Download the document as PDF using aiofiles."""
+    file_path = storage.get_pdf_path(document_id)  # You may need to implement this method to get the file path
+    if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Document not found")
-    return StreamingResponse(
-        iter([pdf_bytes]),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={document_id}.pdf"}
-    )
+    async def file_iterator():
+        async with aiofiles.open(file_path, 'rb') as f:
+            chunk = await f.read(1024 * 1024)
+            while chunk:
+                yield chunk
+                chunk = await f.read(1024 * 1024)
+    return StreamingResponse(file_iterator(), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={document_id}.pdf"})
 
 
 @app.post('/discovery/start')
