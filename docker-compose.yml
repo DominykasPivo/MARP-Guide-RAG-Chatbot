@@ -140,6 +140,25 @@ services:
       options:
         max-size: "10m"
 
+  chat:
+    build:
+      context: ./services/chat
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - "8005:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-MOCK_KEY_FOR_TESTING}
+      - LLM_MODEL=anthropic/claude-3.5-sonnet
+      - PORT=8000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
