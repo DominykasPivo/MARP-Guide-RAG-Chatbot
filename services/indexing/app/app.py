@@ -4,7 +4,7 @@ from rabbitmq import QUEUE_NAME, ROUTING_KEY, EventConsumer
 from semantic_chunking import chunk_document
 from embed_chunks import embed_chunks
 from threading import Thread
-from qdrant_store import store_chunks_in_qdrant
+from qdrant_store import store_chunks_in_qdrant, get_qdrant_client
 from events import EventTypes, process_extracted_event
 import qdrant_client
 import requests
@@ -15,9 +15,10 @@ from datetime import datetime
 import logging
 import os, sys
 
-
 EVENT_VERSION = os.getenv("EVENT_VERSION", "1.0")
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "chunks")
+
+
 
 logger = logging.getLogger('indexing')
 logging.basicConfig(
@@ -28,12 +29,12 @@ logging.basicConfig(
 
 app = FastAPI(title="MARP Indexing Service", version="1.0.0")
 
+client = get_qdrant_client()
 
 @app.get('/index/status/{doc_id}')
 async def index_status(doc_id: str):
     try:
-        from qdrant_store import get_qdrant_client
-        client = get_qdrant_client()
+        
         res = client.scroll(
             collection_name=QDRANT_COLLECTION,
             scroll_filter={"must": [{"key": "document_id", "match": {"value": doc_id}}]},
@@ -64,8 +65,6 @@ async def health():
         logger.error(f"RabbitMQ health check failed: {e}")
         status["rabbitmq"] = "unhealthy"
     try:
-        from qdrant_store import get_qdrant_client
-        client = get_qdrant_client()
         client.get_collections()
         status["qdrant"] = "healthy"
     except Exception as e:
@@ -122,8 +121,6 @@ async def debug_queue():
 @app.get('/debug/chunks')
 async def debug_chunks():
     try:
-        from qdrant_store import get_qdrant_client
-        client = get_qdrant_client()
         res = client.scroll(collection_name=QDRANT_COLLECTION, limit=10)
         points = res[0] if res else []
         preview = []

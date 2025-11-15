@@ -17,7 +17,8 @@ class EventTypes(Enum):
     QUERY_RECEIVED = "QueryReceived"
     CHUNKS_INDEXED = "ChunksIndexed"
     CHUNKS_RETRIEVED = "ChunksRetrieved"
-    RETRIEVAL_COMPLETED = "RetrievalCompleted"  # ← ADD THIS
+    RETRIEVAL_COMPLETED = "RetrievalCompleted"
+    DOCUMENT_EXTRACTED = "DocumentExtracted"
 
 @dataclass
 class QueryReceived:

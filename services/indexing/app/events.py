@@ -22,7 +22,7 @@ logger = logging.getLogger('indexing.events')
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
 def process_extracted_event(message):
-    logger.info(f"📨 Received raw message: {json.dumps(message, indent=2)}")
+    # logger.info(f"📨 Received raw message: {json.dumps(message, indent=2)}")
 
     # Check if this is a valid document.extracted event
     data = message.get("data", {})
@@ -37,9 +37,9 @@ def process_extracted_event(message):
     text_content = payload.get("textContent", "")
     extracted_at = payload.get("extractedAt")
 
-    # Log the payload structure for debugging
-    logger.info(f"🔍 Payload structure: {list(payload.keys())}")
-    logger.info(f"📄 Document ID: {document_id}, Text length: {len(text_content)}")
+    # Log the payload structure for debugging (removed for cleaner logs)
+    # logger.info(f"🔍 Payload structure: {list(payload.keys())}")
+    # logger.info(f"📄 Document ID: {document_id}, Text length: {len(text_content)}")
 
     if not document_id:
         logger.error(f"❌ No documentId found in payload")
@@ -54,42 +54,91 @@ def process_extracted_event(message):
     file_type = metadata.get("fileType", payload.get("fileType", "unknown"))
     correlation_id = data.get("correlationId")
 
-    logger.info(f"✅ Processing document {document_id} with {len(text_content)} characters", extra={"correlation_id": correlation_id})
+    # logger.info(f"✅ Processing document {document_id} with {len(text_content)} characters", extra={"correlation_id": correlation_id})
 
-    # Generate chunks and embeddings
-    chunk_metadata = {
-        "document_id": document_id,
-        "file_type": file_type,
-        "correlation_id": correlation_id,
-        **metadata
-    }
-    chunks = chunk_document(text_content, chunk_metadata)
-    logger.info(f"📊 Generated {len(chunks)} chunks from document {document_id}", extra={"correlation_id": correlation_id})
+
+    # --- Per-page chunking for correct page metadata ---
+    page_texts = payload.get("page_texts")
+    all_chunks = []
+    if page_texts and isinstance(page_texts, list):
+        for page_num, page_text in enumerate(page_texts, start=1):
+            chunk_metadata = {
+                "document_id": document_id,
+                "file_type": file_type,
+                "correlation_id": correlation_id,
+                **metadata,
+                "page": page_num
+            }
+            url = metadata.get("url") or metadata.get("sourceUrl")
+            if url is not None:
+                chunk_metadata["url"] = url
+            chunks = chunk_document(page_text, chunk_metadata)
+            all_chunks.extend(chunks)
+        # logger.info(f"📊 Generated {len(all_chunks)} chunks from document {document_id} (per-page)", extra={"correlation_id": correlation_id})
+    else:
+        # Fallback: chunk the whole document as before
+        chunk_metadata = {
+            "document_id": document_id,
+            "file_type": file_type,
+            "correlation_id": correlation_id,
+            **metadata
+        }
+        url = metadata.get("url") or metadata.get("sourceUrl")
+        if url is not None:
+            chunk_metadata["url"] = url
+        all_chunks = chunk_document(text_content, chunk_metadata)
+        # logger.info(f"📊 Generated {len(all_chunks)} chunks from document {document_id} (whole doc)", extra={"correlation_id": correlation_id})
+
+
+
+    # Assign unique, sequential chunk_index to each chunk
+    for idx, chunk in enumerate(all_chunks):
+        chunk['metadata']['chunk_index'] = idx
+
+    # Debug: Log all_chunks before deduplication
+    # logger.info(f"DEBUG: all_chunks count for {document_id}: {len(all_chunks)}")
+    # for idx, chunk in enumerate(all_chunks):
+    #     logger.info(f"DEBUG: all_chunks[{idx}] chunk_index={{}} text_len={{}}".format(chunk['metadata'].get('chunk_index'), len(chunk['text'])))
+
+    # Deduplicate chunks by text before embedding
+    unique_chunks = []
+    seen_texts = set()
+    for chunk in all_chunks:
+        text = chunk.get('text', '').strip()
+        if text and text not in seen_texts:
+            unique_chunks.append(chunk)
+            seen_texts.add(text)
+    chunks = unique_chunks
+
+    # Debug: Log chunks after deduplication
+    # logger.info(f"DEBUG: unique_chunks count for {document_id}: {len(chunks)}")
+    # for idx, chunk in enumerate(chunks):
+    #     logger.info(f"DEBUG: unique_chunks[{idx}] chunk_index={{}} text_len={{}}".format(chunk['metadata'].get('chunk_index'), len(chunk['text'])))
 
     # ADD DEBUG: Check what chunks look like before embedding
-    if chunks:
-        first_chunk = chunks[0]
-        logger.info(f"🔍 First chunk structure: keys={list(first_chunk.keys())}, text_length={len(first_chunk.get('text', ''))}", extra={"correlation_id": correlation_id})
+    # if chunks:
+    #     first_chunk = chunks[0]
+    #     logger.info(f"🔍 First chunk structure: keys={list(first_chunk.keys())}, text_length={len(first_chunk.get('text', ''))}", extra={"correlation_id": correlation_id})
 
     embedded_chunks = embed_chunks(chunks, correlation_id=correlation_id)
 
     # ADD DEBUG: Check what embedded chunks look like
-    logger.info(f"📊 Generated {len(embedded_chunks)} embedded chunks", extra={"correlation_id": correlation_id})
-    if embedded_chunks:
-        first_embedded = embedded_chunks[0]
-        logger.info(f"🔍 First embedded chunk: has_text={bool(first_embedded.get('text'))}, has_embedding={bool(first_embedded.get('embedding'))}, has_metadata={bool(first_embedded.get('metadata'))}", extra={"correlation_id": correlation_id})
-        if first_embedded.get('embedding'):
-            logger.info(f"🔍 Embedding length: {len(first_embedded['embedding'])}", extra={"correlation_id": correlation_id})
+    # logger.info(f"📊 Generated {len(embedded_chunks)} embedded chunks", extra={"correlation_id": correlation_id})
+    # if embedded_chunks:
+    #     first_embedded = embedded_chunks[0]
+    #     logger.info(f"🔍 First embedded chunk: has_text={bool(first_embedded.get('text'))}, has_embedding={bool(first_embedded.get('embedding'))}, has_metadata={bool(first_embedded.get('metadata'))}", extra={"correlation_id": correlation_id})
+    #     if first_embedded.get('embedding'):
+    #         logger.info(f"🔍 Embedding length: {len(first_embedded['embedding'])}", extra={"correlation_id": correlation_id})
 
     # Log details of each chunk before storing  """"""""""
-    for idx, chunk in enumerate(embedded_chunks):
-        chunk_id = chunk.get('metadata', {}).get('chunk_id', f"{document_id}_chunk_{idx}")
-        meta = chunk.get('metadata', {})
-        text_preview = chunk.get('text', '')[:100].replace('\n', ' ')
-        logger.info(
-            f"📝 Chunk {idx}: id={chunk_id}, meta={json.dumps(meta)}, text_preview='{text_preview}'",
-            extra={"correlation_id": correlation_id}
-        )
+    # for idx, chunk in enumerate(embedded_chunks):
+    #     chunk_id = chunk.get('metadata', {}).get('chunk_id', f"{document_id}_chunk_{idx}")
+    #     meta = chunk.get('metadata', {})
+    #     text_preview = chunk.get('text', '')[:100].replace('\n', ' ')
+    #     logger.info(
+    #         f"📝 Chunk {idx}: id={chunk_id}, meta={json.dumps(meta)}, text_preview='{text_preview}'",
+    #         extra={"correlation_id": correlation_id}
+    #     )
 
 
     # Store in Qdrant
@@ -130,8 +179,13 @@ def process_extracted_event(message):
                     "indexedAt": datetime.utcnow().isoformat()
                 }
             }
-            # Log the full ChunksIndexed event in detail (pretty-printed, up to 4000 chars)
-            event_json = json.dumps(indexed_event, indent=2, ensure_ascii=False)
+            # Log the ChunksIndexed event without chunkText for brevity
+            indexed_event_log = dict(indexed_event)
+            if "payload" in indexed_event_log:
+                indexed_event_log["payload"] = dict(indexed_event_log["payload"])
+                if "chunkText" in indexed_event_log["payload"]:
+                    indexed_event_log["payload"]["chunkText"] = "<omitted>"
+            event_json = json.dumps(indexed_event_log, indent=2, ensure_ascii=False)
             logger.info(f"\n========== 📦 ChunksIndexed Event ==========" \
                         f"\n{event_json[:4000]}" \
                         f"\n============================================", extra={"correlation_id": correlation_id})

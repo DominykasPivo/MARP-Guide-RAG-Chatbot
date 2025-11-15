@@ -21,6 +21,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      indexing:
+        condition: service_healthy
     environment:
       - RABBITMQ_HOST=rabbitmq
       - INGESTION_SERVICE_URL=http://ingestion:8000
@@ -47,6 +49,8 @@ services:
       dockerfile: Dockerfile
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      extraction:
         condition: service_healthy
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
@@ -102,6 +106,35 @@ services:
       timeout: 3s
       retries: 3
       start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        
+  retrieval:
+    build:
+      context: ./services/retrieval
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=chunks
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app-network
     logging:
       driver: json-file
       options:

@@ -1,7 +1,8 @@
-"""Retriever using Chroma PersistentClient (matched to indexing service)."""
+"""Retriever for Qdrant vector search (matched to indexing service)."""
 import os
 from typing import List, Dict, Any
-import chromadb
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as qdrant_models
 from sentence_transformers import SentenceTransformer
 import torch
 import logging
@@ -12,24 +13,62 @@ class Retriever:
     def __init__(
         self,
         embedding_model: str = "all-MiniLM-L6-v2",
-        chromadb_path: str = None,
+        qdrant_host: str = None,
+        qdrant_port: int = None,
         collection_name: str = "chunks"
     ):
         # Match indexing service's env var names and defaults
         self.embedding_model_name = os.getenv("EMBEDDING_MODEL", embedding_model)
-        self.chromadb_path = chromadb_path or os.getenv("CHROMADB_PATH", "/app/data/chromadb")
-        self.collection_name = os.getenv("CHROMA_COLLECTION_NAME", collection_name)
+        self.qdrant_host = qdrant_host or os.getenv("QDRANT_HOST", "localhost")
+        self.qdrant_port = int(qdrant_port or os.getenv("QDRANT_PORT", 6333))
+        self.collection_name = os.getenv("QDRANT_COLLECTION_NAME", collection_name)
 
         self.encoder = None
         self.client = None
-        self.collection = None
 
         logger.info("Initializing Retriever with:")
         logger.info(f"  - Embedding model: {self.embedding_model_name}")
-        logger.info(f"  - ChromaDB path: {self.chromadb_path}")
+        logger.info(f"  - Qdrant host: {self.qdrant_host}:{self.qdrant_port}")
         logger.info(f"  - Collection: {self.collection_name}")
 
         self._initialize()
+
+
+    def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Search for relevant chunks using Qdrant."""
+        try:
+            # Lowercase query for consistent preprocessing
+            query_proc = query.lower()
+            logger.info(f"Encoding query: '{query_proc[:100]}...'")
+            query_embedding = self.encoder.encode(query_proc, convert_to_tensor=False).tolist()
+
+            # Qdrant search
+            logger.info(f"🔍 Searching Qdrant collection '{self.collection_name}' for top {top_k} results")
+            search_results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_embedding,
+                limit=top_k,
+                with_payload=True,
+                with_vectors=False
+            )
+
+            chunks: List[Dict[str, Any]] = []
+            for result in search_results:
+                payload = result.payload or {}
+                chunks.append({
+                    "id": result.id,
+                    "text": payload.get("text", ""),
+                    "relevanceScore": result.score,
+                    "title": payload.get("title", "MARP Document"),
+                    "page": payload.get("page", 0),
+                    "url": payload.get("url", ""),
+                    "chunkIndex": payload.get("chunk_index", 0),
+                })
+            logger.info(f"✅ Retrieved {len(chunks)} chunks from Qdrant")
+            return chunks
+        except Exception as e:
+            logger.error(f"❌ Search failed: {e}", exc_info=True)
+            return []
 
     def _initialize(self):
         try:
@@ -46,94 +85,22 @@ class Retriever:
                 self.encoder = SentenceTransformer(self.embedding_model_name, device='cpu')
             logger.info("Embedding model loaded on CPU")
 
-            # PersistentClient - IDENTICAL TO INDEXING
-            logger.info(f"Opening ChromaDB persistent client at: {self.chromadb_path}")
-            self.client = chromadb.PersistentClient(path=self.chromadb_path)
+            # Qdrant client setup
+            logger.info(f"Connecting to Qdrant at {self.qdrant_host}:{self.qdrant_port}")
+            self.client = QdrantClient(host=self.qdrant_host, port=self.qdrant_port)
 
-            # Get or create collection
+            # Ensure collection exists (do not create if not found; indexing service should create)
             try:
-                self.collection = self.client.get_collection(name=self.collection_name)
-                count = self.collection.count()
-                logger.info(f"Using existing collection '{self.collection_name}' with {count} documents")
-                if count == 0:
-                    logger.warning("Collection exists but is empty - waiting for indexing")
+                collections = self.client.get_collections().collections
+                if not any(c.name == self.collection_name for c in collections):
+                    logger.warning(f"Collection '{self.collection_name}' not found in Qdrant. Waiting for indexing.")
+                else:
+                    logger.info(f"Using existing Qdrant collection '{self.collection_name}'")
             except Exception as e:
-                logger.warning(f"Collection '{self.collection_name}' not found: {e}")
-                # Create empty collection (indexing will populate it)
-                self.collection = self.client.create_collection(
-                    name=self.collection_name,
-                    metadata={"hnsw:space": "cosine"}
-                )
-                logger.info(f"Created empty collection '{self.collection_name}'")
-
+                logger.error(f"Failed to check Qdrant collections: {e}", exc_info=True)
         except Exception as e:
-            logger.error(f"Failed to initialize retriever: {e}", exc_info=True)
+            logger.error(f"Failed to initialize Retriever: {e}", exc_info=True)
             raise
-
-    def invalidate_cache(self):
-        """Reload collection after indexing events."""
-        try:
-            if self.client:
-                self.collection = self.client.get_collection(name=self.collection_name)
-                count = self.collection.count()
-                logger.info(f"✅ Collection reloaded: '{self.collection_name}' with {count} documents")
-        except Exception as e:
-            logger.error(f"Failed to reload collection: {e}", exc_info=True)
-
-    def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Search for relevant chunks."""
-        try:
-            if not self.collection:
-                logger.warning("Collection not initialized; attempting to fetch now")
-                self.collection = self.client.get_collection(name=self.collection_name)
-
-            count = self.collection.count()
-            logger.info(f"🔍 Searching collection '{self.collection_name}' with {count} documents")
-            
-            if count == 0:
-                logger.warning("❌ Collection is empty - no documents to search")
-                return []
-
-            # Encode query (same encoder as indexing)
-            logger.info(f"Encoding query: '{query[:100]}...'")
-            query_embedding = self.encoder.encode(query, convert_to_tensor=False).tolist()
-
-            # Query ChromaDB
-            results = self.collection.query(
-                query_embeddings=[query_embedding],
-                n_results=min(max(1, top_k), count),
-                include=['documents', 'metadatas', 'distances']
-            )
-
-            chunks: List[Dict[str, Any]] = []
-            if results and results.get('ids') and len(results['ids']) > 0:
-                ids = results['ids'][0]
-                documents = results.get('documents', [[]])[0]
-                metadatas = results.get('metadatas', [[]])[0]
-                distances = results.get('distances', [[]])[0]
-
-                for doc_id, text, metadata, distance in zip(ids, documents, metadatas, distances):
-                    m = metadata or {}
-                    similarity = 1 - float(distance)
-                    chunks.append({
-                        "id": doc_id,
-                        "text": text,
-                        "relevanceScore": similarity,
-                        "title": m.get("title", "MARP Document"),
-                        "page": m.get("page", 0),
-                        "url": m.get("url", ""),
-                        "chunkIndex": m.get("chunk_index", 0),
-                    })
-                
-                logger.info(f"✅ Retrieved {len(chunks)} chunks")
-            else:
-                logger.warning("❌ No results returned from ChromaDB query")
-
-            return chunks
-            
-        except Exception as e:
-            logger.error(f"❌ Search failed: {e}", exc_info=True)
-            return []
 
 # Singleton
 _retriever = None
@@ -145,7 +112,6 @@ def get_retriever() -> Retriever:
         logger.info("Creating Retriever singleton")
         _retriever = Retriever(
             embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
-            chromadb_path=os.getenv("CHROMADB_PATH", "/app/data/chromadb"),
-            collection_name=os.getenv("CHROMA_COLLECTION_NAME", "chunks"),
+            collection_name=os.getenv("QDRANT_COLLECTION_NAME", "chunks"),
         )
     return _retriever

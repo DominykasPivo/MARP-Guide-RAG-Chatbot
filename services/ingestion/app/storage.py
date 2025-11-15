@@ -86,6 +86,16 @@ class DocumentStorage:
                 logger.error(f"Error reading PDF for {document_id}: {e}")
                 return None
 
+    def get_pdf_path(self, document_id: str) -> Optional[str]:
+        """Return the absolute path to the PDF file for a given document_id, or None if not found."""
+        with self._lock:
+            self._load_index()
+            entry = self.index.get(document_id)
+            if not entry:
+                return None
+            pdf_path = os.path.join(self.base_path, entry['pdf'])
+            return pdf_path if os.path.exists(pdf_path) else None
+
     # get_metadata removed: per-document metadata files are no longer used.
 
     def list_documents(self) -> List[Dict]:

@@ -21,7 +21,9 @@ def embed_chunks(chunks, correlation_id=None):
         logger.error("All chunks are invalid or have empty 'text' fields.", extra={"correlation_id": correlation_id})
         raise ValueError("No valid chunks with non-empty 'text' fields.")
 
-    texts = [chunk["text"] for chunk in valid_chunks]
+
+    # Lowercase all chunk texts before embedding
+    texts = [chunk["text"].lower() for chunk in valid_chunks]
     embeddings = model.encode(texts, batch_size=32, show_progress_bar=False)
 
     embedded_chunks = []

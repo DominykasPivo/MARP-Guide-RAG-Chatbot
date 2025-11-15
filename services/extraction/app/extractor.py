@@ -275,6 +275,7 @@ class ExtractionService:
                 "payload": {
                     "documentId": discovered.payload.get("documentId"),
                     "textContent": "\n\n".join(result.get("page_texts", [])),  # Ensure page_texts is handled safely
+                    "page_texts": result.get("page_texts", []),
                     "fileType": fileType,
                     "metadata": {
                         "title": metadata.get("title", "Unknown Title"),  # Default to "Unknown Title" if missing
