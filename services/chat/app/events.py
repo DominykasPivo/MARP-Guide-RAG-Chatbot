@@ -15,10 +15,10 @@ EXCHANGE_NAME = 'document_events'
 
 class EventTypes(Enum):
     """Event types for the chat service."""
-    QUERY_RECEIVED = "QueryReceived"
-    CHUNKS_RETRIEVED = "ChunksRetrieved"
-    RESPONSE_GENERATED = "ResponseGenerated"
-    ANSWER_GENERATED = "AnswerGenerated"  # ← ADDED
+    QUERY_RECEIVED = "queryreceived"
+    CHUNKS_RETRIEVED = "chunksretrieved"
+    RESPONSE_GENERATED = "responsegenerated"
+    ANSWER_GENERATED = "answergenerated"
 
 @dataclass
 class QueryReceived:

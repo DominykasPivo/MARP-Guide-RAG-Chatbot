@@ -25,3 +25,6 @@ print(f"Unique documents: {len(unique_doc_ids)}")
 print("Document IDs:")
 for doc_id in unique_doc_ids:
     print(doc_id)
+
+
+#Invoke-WebRequest -Uri "http://localhost:6333/collections/chunks/points/scroll" -Method POST -ContentType "application/json" -Body '{"limit":10000}' -OutFile "chunks.json"

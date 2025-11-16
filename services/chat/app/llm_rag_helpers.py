@@ -1,9 +1,11 @@
+
 import os
 import time
 from typing import List
+import httpx
 
 from models import Chunk, Citation, ChatRequest, ChatResponse
-from services.chat.app.rabbitmq import publish_rag_job, poll_rag_result
+
 
 # The System Instruction guides the LLM to use the context and avoid hallucination.
 RAG_PROMPT_TEMPLATE = """
@@ -19,6 +21,38 @@ CONTEXT:
 
 QUESTION: "{query}"
 """
+
+
+# Async LLM call version
+async def generate_answer_with_citations_async(query: str, chunks: list, api_key: str, model: str) -> tuple:
+    """
+    Calls an external LLM API asynchronously to generate an answer and extracts citations from the chunks.
+    Returns (answer: str, citations: List[Citation])
+    """
+    rag_prompt = build_rag_prompt(query, chunks)
+    messages = [
+        #{"role": "system", "content": "You are an expert AI assistant for the MARP-Guide."},
+        {"role": "user", "content": rag_prompt}
+    ]
+    headers = {"Authorization": f"Bearer {api_key}"}
+    payload = {"model": model, "messages": messages}
+    answer = ""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60.0
+            )
+        response.raise_for_status()
+        data = response.json()
+        # Extract answer from LLM response (OpenAI/compatible format)
+        answer = data["choices"][0]["message"]["content"]
+    except Exception as e:
+        answer = f"[LLM Error] {str(e)}"
+    citations = extract_citations(chunks)
+    return answer, citations
 
 def build_rag_prompt(query: str, chunks: List[Chunk]) -> str:
     """Combines retrieved chunks into a context string and fills the RAG template."""
