@@ -1,11 +1,14 @@
 
 import os
 import time
-from typing import List
+import asyncio
+import logging
+from typing import List, Tuple
 import httpx
 
-from models import Chunk, Citation, ChatRequest, ChatResponse
+from models import Chunk, Citation, ChatRequest, ChatResponse, LLMResponse
 
+logger = logging.getLogger('chat.llm_rag_helpers')
 
 # The System Instruction guides the LLM to use the context and avoid hallucination.
 RAG_PROMPT_TEMPLATE = """
@@ -23,19 +26,32 @@ QUESTION: "{query}"
 """
 
 
-# Async LLM call version
+# Async LLM call version for a single model
 async def generate_answer_with_citations_async(query: str, chunks: list, api_key: str, model: str) -> tuple:
     """
     Calls an external LLM API asynchronously to generate an answer and extracts citations from the chunks.
-    Returns (answer: str, citations: List[Citation])
+    Returns (answer: str, citations: List[Citation], generation_time: float)
     """
+    start_time = time.time()
     rag_prompt = build_rag_prompt(query, chunks)
+    
+    # Mistral-specific fix: add instruction at the end
+    if "mistral" in model.lower():
+        rag_prompt = rag_prompt + "\n\nProvide a detailed answer:"
+    
     messages = [
-        #{"role": "system", "content": "You are an expert AI assistant for the MARP-Guide."},
         {"role": "user", "content": rag_prompt}
     ]
-    headers = {"Authorization": f"Bearer {api_key}"}
-    payload = {"model": model, "messages": messages}
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": 2000,  # Increase token limit
+        "temperature": 0.7
+    }
     answer = ""
     try:
         async with httpx.AsyncClient() as client:
@@ -45,14 +61,67 @@ async def generate_answer_with_citations_async(query: str, chunks: list, api_key
                 json=payload,
                 timeout=60.0
             )
-        response.raise_for_status()
-        data = response.json()
-        # Extract answer from LLM response (OpenAI/compatible format)
-        answer = data["choices"][0]["message"]["content"]
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extract answer from LLM response (OpenAI/compatible format)
+            if "choices" in data and len(data["choices"]) > 0:
+                answer = data["choices"][0]["message"]["content"]
+                
+                # Log if empty
+                if not answer or not answer.strip():
+                    logger.warning(f"Model {model} returned empty content. Full response: {data}")
+                    answer = "The model did not generate a response."
+                else:
+                    answer = answer.strip()
+                    
     except Exception as e:
+        logger.error(f"Error calling model {model}: {str(e)}")
         answer = f"[LLM Error] {str(e)}"
+    
+    generation_time = time.time() - start_time
     citations = extract_citations(chunks)
-    return answer, citations
+    return answer, citations, generation_time
+
+
+async def generate_answers_parallel(query: str, chunks: list, api_key: str, models: List[str]) -> List[LLMResponse]:
+    """
+    Calls multiple LLM models in parallel and returns all responses.
+    Returns List[LLMResponse] containing responses from all models.
+    """
+    logger.info(f"🤖 Generating answers from {len(models)} models in parallel: {models}")
+    
+    # Create tasks for all models
+    tasks = [
+        generate_answer_with_citations_async(query, chunks, api_key, model)
+        for model in models
+    ]
+    
+    # Execute all tasks in parallel
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process results
+    llm_responses = []
+    for model, result in zip(models, results):
+        if isinstance(result, Exception):
+            logger.error(f"❌ Model {model} failed with exception: {str(result)}")
+            llm_responses.append(LLMResponse(
+                model=model,
+                answer=f"[Error] Failed to generate answer: {str(result)}",
+                citations=[],
+                generation_time=0.0
+            ))
+        else:
+            answer, citations, generation_time = result
+            logger.info(f"✅ Model {model} completed in {generation_time:.2f}s")
+            llm_responses.append(LLMResponse(
+                model=model,
+                answer=answer,
+                citations=citations,
+                generation_time=generation_time
+            ))
+    
+    return llm_responses
 
 def build_rag_prompt(query: str, chunks: List[Chunk]) -> str:
     """Combines retrieved chunks into a context string and fills the RAG template."""

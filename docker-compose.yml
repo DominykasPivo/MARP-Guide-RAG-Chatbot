@@ -149,11 +149,15 @@ services:
     environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - OPENROUTER_API_KEY=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
-      - LLM_MODEL=google/gemma-3-4b-it:free
+      - OPENROUTER_API_KEY=
+      - LLM_MODEL=openai/gpt-oss-20b:free
+      - LLM_MODELS=openai/gpt-oss-20b:free,google/gemma-3n-e4b-it:free,mistralai/mistral-7b-instruct:free
       - PORT=8000
+      - RETRIEVAL_SERVICE_URL=http://retrieval:8000
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      retrieval:
         condition: service_healthy
     networks:
       - app-network
