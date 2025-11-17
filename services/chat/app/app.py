@@ -8,11 +8,12 @@ import logging
 import pika
 import httpx
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from models import ChatRequest, ChatResponse, Chunk, Citation
-from llm_rag_helpers import generate_answer_with_citations_async
+from models import ChatRequest, ChatResponse, Chunk, Citation, LLMResponse
+from llm_rag_helpers import generate_answer_with_citations_async, generate_answers_parallel
 from events import publish_query_event
 
 
@@ -31,11 +32,28 @@ logging.basicConfig(
 
 app = FastAPI(title="MARP Chat Service", version="1.0.0")
 
+# Mount static files
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Environment variables
 RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
 RABBITMQ_URL = os.getenv('RABBITMQ_URL', f'amqp://guest:guest@{RABBITMQ_HOST}:5672/')
 RETRIEVAL_SERVICE_URL = os.getenv('RETRIEVAL_SERVICE_URL', 'http://retrieval:8000')
+
+# Multiple FREE LLM models to use for parallel generation
+LLM_MODELS = os.getenv('LLM_MODELS', 'google/gemma-2-9b-it:free,meta-llama/llama-3.2-3b-instruct:free,microsoft/phi-3-mini-128k-instruct:free').split(',')
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
+
+# Log configured models (not API key)
+try:
+    _models_preview = [m.strip() for m in LLM_MODELS if m.strip()]
+    logger.info(f"🧩 Configured LLM models: {_models_preview}")
+    if not OPENROUTER_API_KEY:
+        logger.warning("⚠️ OPENROUTER_API_KEY is not set; LLM calls will fail.")
+except Exception:
+    pass
 
 
 
@@ -61,6 +79,15 @@ async def get_chunks_via_http_async(query: str):
     except Exception as e:
         logger.error(f"❌ Error getting chunks via HTTP (async): {str(e)}", exc_info=True)
         return []
+
+
+@app.get('/')
+async def index():
+    """Serve the main UI page"""
+    static_file = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    if os.path.exists(static_file):
+        return FileResponse(static_file)
+    return {"message": "UI not available. Access /chat endpoint directly."}
 
 
 @app.get('/health')
@@ -90,31 +117,37 @@ async def chat(request: Request, chat_request: ChatRequestModel):
         chunks_data = await get_chunks_via_http_async(query)
 
         if not chunks_data:
-            logger.warning("⚠️ No chunks found for query")
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "answer": "I couldn't find any relevant information to answer your question.",
-                    "citations": []
-                }
+            logger.warning("⚠️ No chunks found for query; returning multi-LLM fallback response")
+            # Return a response per configured model to keep schema consistent
+            fallback_responses = [
+                LLMResponse(
+                    model=m.strip(),
+                    answer="I couldn't find any relevant information to answer your question.",
+                    citations=[],
+                    generation_time=0.0
+                )
+                for m in LLM_MODELS if m.strip()
+            ]
+            response = ChatResponse(
+                query=query,
+                responses=fallback_responses
             )
+            return JSONResponse(status_code=200, content=response.dict())
 
         # Convert to Chunk objects
         chunks = [Chunk(**chunk) for chunk in chunks_data]
         logger.info(f"✅ Processing {len(chunks)} chunks")
 
 
-        # Generate answer with citations using LLM (async)
-        logger.info("🤖 Generating answer with LLM (async)...")
-        API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-        LLM_MODEL = os.getenv("LLM_MODEL", "anthropic/claude-3.5-sonnet")
-        answer, citations = await generate_answer_with_citations_async(query, chunks, api_key=API_KEY, model=LLM_MODEL)
+        # Generate answers from multiple LLMs in parallel
+        logger.info(f"🤖 Generating answers from {len(LLM_MODELS)} models in parallel...")
+        llm_responses = await generate_answers_parallel(query, chunks, api_key=OPENROUTER_API_KEY, models=LLM_MODELS)
 
-        logger.info(f"✅ Generated answer with {len(citations)} citations")
+        logger.info(f"✅ Generated {len(llm_responses)} responses from different models")
 
         response = ChatResponse(
-            answer=answer,
-            citations=citations
+            query=query,
+            responses=llm_responses
         )
 
         return JSONResponse(status_code=200, content=response.dict())

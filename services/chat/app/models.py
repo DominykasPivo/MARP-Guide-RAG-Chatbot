@@ -17,11 +17,18 @@ class Citation(BaseModel):
     page: int
     url: str
 
+class LLMResponse(BaseModel):
+    """Represents a response from a single LLM model."""
+    model: str = Field(..., description="Name of the LLM model used (e.g., 'claude-3.5-sonnet').")
+    answer: str = Field(..., description="The generated answer from this model.")
+    citations: List[Citation] = Field(..., description="Citations used for this answer.")
+    generation_time: float = Field(..., description="Time taken to generate this response in seconds.")
+
 class ChatRequest(BaseModel):
     """The request body for the /chat endpoint."""
     query: str
 
 class ChatResponse(BaseModel):
-    """The final response body for the user."""
-    answer: str
-    citations: List[Citation]
+    """The final response body for the user with multiple LLM responses."""
+    responses: List[LLMResponse] = Field(..., description="Responses from different LLM models.")
+    query: str = Field(..., description="The original query.")
