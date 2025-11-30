@@ -5,14 +5,13 @@ import time
 import re
 from typing import Dict, Optional
 import magic
-import PyPDF2
+import pypdf
 import pdfplumber
 import logging
 import pika
 import uuid
 import json
-from rabbitmq import EventConsumer
-from events import DocumentDiscovered, EventTypes
+
 
 # Configure logging
 logger = logging.getLogger('extraction.extractor')
@@ -101,7 +100,7 @@ class PDFExtractor:
         """
         try:
             with open(file_path, 'rb') as file:
-                reader = PyPDF2.PdfReader(file)
+                reader = pypdf.PdfReader(file)
                 # Get basic metadata
                 info = reader.metadata if reader.metadata else {}
                 page_count = len(reader.pages)
@@ -145,12 +144,15 @@ class PDFExtractor:
 class ExtractionService:
     """Service for extracting text and metadata from documents."""
     
+    
+
     def __init__(self, rabbitmq_host: str = 'rabbitmq'):
         """Initialize the service.
         
         Args:
             rabbitmq_host: Hostname of the RabbitMQ server
         """
+        from rabbitmq import EventConsumer
         self.consumer = EventConsumer(rabbitmq_host)
         self.extractor = PDFExtractor()
         self.ingestion_url = os.getenv('INGESTION_SERVICE_URL', 'http://ingestion:8000')
@@ -171,6 +173,7 @@ class ExtractionService:
         self._handle_document_wrapper(ch, method, properties, body)
             
     def start(self):
+        from events import EventTypes
         """Start the service."""
         logger.info("Starting extraction service...")
         
@@ -202,6 +205,7 @@ class ExtractionService:
         self.handle_document(ch, method, properties, body)
             
     def handle_document(self, ch, method, properties, body):
+        from events import DocumentDiscovered, EventTypes
         """Handle a document.discovered event.
         
         Args:

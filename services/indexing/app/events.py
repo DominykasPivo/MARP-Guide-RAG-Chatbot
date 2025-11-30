@@ -5,10 +5,8 @@ from datetime import datetime
 import logging
 import qdrant_client
 import os
-from semantic_chunking import chunk_document
-from embed_chunks import embed_chunks
-from qdrant_store import store_chunks_in_qdrant
-from rabbitmq import pika, EXCHANGE_NAME
+
+
 from enum import Enum
 from typing import Dict
 from dataclasses import dataclass
@@ -58,6 +56,10 @@ def process_extracted_event(message):
 
 
     # --- Per-page chunking for correct page metadata ---
+    from semantic_chunking import chunk_document
+    from embed_chunks import embed_chunks
+    from qdrant_store import store_chunks_in_qdrant
+    from rabbitmq import pika, EXCHANGE_NAME
     page_texts = payload.get("page_texts")
     all_chunks = []
     if page_texts and isinstance(page_texts, list):

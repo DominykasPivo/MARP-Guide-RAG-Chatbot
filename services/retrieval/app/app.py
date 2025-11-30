@@ -1,22 +1,14 @@
-"""Retrieval service (matched to indexing architecture)."""
-import json
 import os
-import threading
 import time
 import uuid
 from datetime import datetime, timezone
-from functools import wraps
-from retriever import get_retriever
-from rabbitmq import EventConsumer
-from events import publish_event, EventTypes
+from events import publish_event
 from qdrant_client import QdrantClient
 from retrieval import RetrievalService
 import logging, sys
-from fastapi import FastAPI, Request, Body
+from fastapi import FastAPI, Body
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List
-import requests
 
 
 class SearchRequest(BaseModel):

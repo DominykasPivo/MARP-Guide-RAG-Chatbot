@@ -3,9 +3,9 @@ import os
 import time
 import uuid
 import logging
-from retriever import get_retriever
 from rabbitmq import EventConsumer
 from events import publish_event, EventTypes
+from retriever import get_retriever
 from qdrant_client import QdrantClient
 from datetime import datetime, timezone
 
