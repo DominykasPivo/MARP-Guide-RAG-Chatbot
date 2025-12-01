@@ -140,9 +140,7 @@ class RetrievalService:
             chunks = retriever.search(query_text, top_k=5)
             processing_time = (time.time() - start_time) * 1000
             logger.info(
-                f"⏱️ Retrieved {
-                    len(chunks)} chunks in {
-                    processing_time:.2f}ms",
+                f"⏱️ Retrieved {len(chunks)} chunks in {processing_time:.2f}ms",
                 extra={"correlation_id": correlation_id, "query_id": query_id},
             )
             top_score = chunks[0]["relevanceScore"] if chunks else 0.0

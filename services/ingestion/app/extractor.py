@@ -58,11 +58,7 @@ class PDFLinkExtractor:
                 pdf_urls.append(url)
 
         logger.info(
-            f"Found {
-                len(pdf_urls)} PDF links",
+            f"Found {len(pdf_urls)} PDF links",
             extra={"correlation_id": correlation_id},
         )
         return pdf_urls
-
-        # Metadata extraction and PDF download methods removed. This class now
-        # only extracts PDF links from HTML.
