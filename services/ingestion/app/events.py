@@ -44,14 +44,14 @@ def publish_document_discovered_event(event_publisher, doc_info: DocumentDiscove
     )
     if result:
         logger.info(
-            f"Published document discovery event for {
-                doc_info.payload['documentId']}",
+            "Published document discovery event for %s",
+            doc_info.payload["documentId"],
             extra={"correlation_id": correlation_id},
         )
     else:
         logger.error(
-            f"Failed to publish DocumentDiscovered event for {
-                doc_info.payload['documentId']}",
+            "Failed to publish DocumentDiscovered event for %s",
+            doc_info.payload["documentId"],
             extra={"correlation_id": correlation_id},
         )
     return result
