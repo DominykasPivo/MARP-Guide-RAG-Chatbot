@@ -5,7 +5,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from events import publish_event
+from retrieval_events import publish_event
 from fastapi import Body, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel

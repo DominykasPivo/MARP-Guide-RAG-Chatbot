@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 
-from events import EventTypes, publish_event
+from retrieval_events import EventTypes, publish_event
 from rabbitmq import EventConsumer
 from retriever import get_retriever
 
