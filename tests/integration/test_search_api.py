@@ -9,12 +9,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(
-    0,
+sys.path = [
     os.path.abspath(
         os.path.join(os.path.dirname(__file__), "../../services/retrieval/app")
-    ),
-)
+    )
+] + sys.path
 
 
 # Patch QdrantClient from the actual package before importing app

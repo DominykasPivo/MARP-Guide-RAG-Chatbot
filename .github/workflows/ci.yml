@@ -77,9 +77,6 @@ jobs:
       - name: Create data dir
         run: mkdir -p "$DATA_DIR"
 
-      - name: Install cryptography
-        run: pip install cryptography
-
       - name: Install coverage tools
         run: pip install pytest-cov coverage
 
