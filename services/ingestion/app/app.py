@@ -23,16 +23,18 @@ logging.basicConfig(
 )
 
 
-# Ensure /data directory exists before initializing storage
-os.makedirs("/data", exist_ok=True)
-storage = DocumentStorage("/data")
+
+# Use a writable data directory, configurable via environment variable
+DATA_DIR = os.environ.get("DATA_DIR", "./data")
+os.makedirs(DATA_DIR, exist_ok=True)
+storage = DocumentStorage(DATA_DIR)
 
 # Initialize RabbitMQ event publisher
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
 event_publisher = EventPublisher(host=RABBITMQ_HOST)
 
 # Initialize document discoverer
-storage_dir = "/data"
+storage_dir = DATA_DIR
 document_discoverer = MARPDocumentDiscoverer(storage_dir)
 
 

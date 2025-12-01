@@ -46,6 +46,8 @@ jobs:
 
   test:
     runs-on: ubuntu-22.04
+    env:
+      DATA_DIR: ${{ github.workspace }}/data
     strategy:
       fail-fast: true
       matrix:
@@ -71,6 +73,9 @@ jobs:
 
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+
+      - name: Create data dir
+        run: mkdir -p "$DATA_DIR"
 
       - name: Install coverage tools
         run: pip install pytest-cov coverage
