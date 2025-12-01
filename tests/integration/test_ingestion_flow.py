@@ -12,8 +12,8 @@ sys.path.insert(
     ),
 )
 
-import shutil
 import tempfile
+import shutil
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
