@@ -2,10 +2,13 @@
 Legacy vector DB client wrapper for backward compatibility.
 Routes to new retriever module (Qdrant-based).
 """
-from retriever import get_retriever
+
 import logging
 
+from retriever import get_retriever
+
 logger = logging.getLogger("retrieval.vector_db_client")
+
 
 def get_relevant_chunks(query: str, top_k: int = 5):
     """Get relevant chunks from the current vector DB (Qdrant)."""
@@ -15,10 +18,10 @@ def get_relevant_chunks(query: str, top_k: int = 5):
         # Format for legacy compatibility
         return [
             {
-                'text': chunk['text'],
-                'title': chunk['title'],
-                'page': chunk['page'],
-                'url': chunk['url']
+                "text": chunk["text"],
+                "title": chunk["title"],
+                "page": chunk["page"],
+                "url": chunk["url"],
             }
             for chunk in chunks
         ]

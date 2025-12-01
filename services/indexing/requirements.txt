@@ -2,7 +2,7 @@ fastapi==0.110.2
 uvicorn[standard]==0.29.0
 pika==1.3.2   # latest version
 tiktoken==0.12.0   # latest version
-qdrant-client==1.8.2  # latest version as of Nov 2025
+qdrant-client==1.8.2 
 sentence-transformers==5.1.1 # latest version
 pydantic-settings==2.11.0  # latest//  pydantic packages moved to this new package > class BaseSettings
 tenacity==8.2.3 

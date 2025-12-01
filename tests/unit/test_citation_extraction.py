@@ -1,20 +1,22 @@
-
 import sys
 from unittest.mock import MagicMock
+
+from pypdf import PdfWriter
+
+from services.extraction.app.extractor import PDFExtractor
+
 # Mock 'magic' module before any other imports
 mock_magic = MagicMock()
-mock_magic.from_file.return_value = 'application/pdf'
-sys.modules['magic'] = mock_magic
-import pytest
-import os
-from pypdf import PdfWriter
-from services.extraction.app.extractor import PDFExtractor
+mock_magic.from_file.return_value = "application/pdf"
+sys.modules["magic"] = mock_magic
+
 
 def create_valid_pdf(path):
     writer = PdfWriter()
     writer.add_blank_page(width=72, height=72)
     with open(path, "wb") as f:
         writer.write(f)
+
 
 def test_pdfextractor_extract_metadata(tmp_path):
     # Create a valid dummy PDF file
@@ -26,5 +28,5 @@ def test_pdfextractor_extract_metadata(tmp_path):
     assert metadata == {
         "title": "test.pdf",
         "pageCount": 1,
-        "sourceUrl": source_url
+        "sourceUrl": source_url,
     }
