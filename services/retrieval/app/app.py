@@ -5,12 +5,12 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from retrieval_events import publish_event
 from fastapi import Body, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
 from retrieval import RetrievalService
+from retrieval_events import publish_event
 
 
 class SearchRequest(BaseModel):

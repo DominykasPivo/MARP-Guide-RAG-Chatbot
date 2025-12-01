@@ -5,7 +5,7 @@ import time
 import uuid
 
 from retrieval_events import EventTypes, publish_event
-from rabbitmq import EventConsumer
+from retrieval_rabbitmq import EventConsumer
 from retriever import get_retriever
 
 logger = logging.getLogger("retrieval")

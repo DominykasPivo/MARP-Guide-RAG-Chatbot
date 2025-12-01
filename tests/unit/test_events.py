@@ -12,7 +12,7 @@ from services.indexing.app.events import (
     DocumentExtracted,
 )
 from services.ingestion.app.events import DocumentDiscovered
-from services.retrieval.app.events import (
+from services.retrieval.app.retrieval_events import (
     ChunksIndexed,
     ChunksRetrieved,
     QueryReceived,
