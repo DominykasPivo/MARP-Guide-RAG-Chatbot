@@ -103,7 +103,7 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: test-coverage-${{ github.job }}-${{ github.run_number }}
+          name: test-coverage-${{ github.job }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: tests/coverage.xml
 
   integration-tests:
