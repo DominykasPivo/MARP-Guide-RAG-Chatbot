@@ -114,7 +114,6 @@ jobs:
     strategy:
       fail-fast: true
     steps:
-    steps:
       - name: Prune Docker system
         run: docker system prune -af
       - name: Checkout code
