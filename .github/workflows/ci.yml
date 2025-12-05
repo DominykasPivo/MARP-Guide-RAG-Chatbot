@@ -39,7 +39,7 @@ jobs:
         run: pip install mypy==1.19.0
 
       - name: Install type stubs for mypy
-        run: pip install types-requests==2.31.0.20240406 types-aiofiles==23.2.0.20240406
+        run: pip install types-requests==2.31.0.20240406 types-aiofiles==23.2.0.20240403
 
       - name: Run mypy (type check)
         run: mypy services/
@@ -108,7 +108,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-22.04
-    needs: [lint, unit-tests]
+    needs: [lint, unit-test, type-check, security-scan]
     env:
       DATA_DIR: ${{ github.workspace }}/data
     strategy:

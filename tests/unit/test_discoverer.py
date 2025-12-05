@@ -5,20 +5,29 @@ Target: services/ingestion/app/discoverer.py
 Coverage: 87 statements at 0%
 """
 
+import sys
 import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import requests
+
+# Add service app directory to Python path to match Docker environment
+# In Docker, working directory is /app with modules at root level
+project_root = Path(__file__).parent.parent.parent
+ingestion_app = project_root / "services" / "ingestion" / "app"
+if str(ingestion_app) not in sys.path:
+    sys.path.insert(0, str(ingestion_app))
 
 
 class TestMARPDocumentDiscoverer:
     """Test MARPDocumentDiscoverer initialization and document discovery."""
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
     def test_discoverer_initialization(self, mock_extractor_class, mock_storage_class):
         """Test MARPDocumentDiscoverer initializes correctly."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Mock instances
@@ -33,15 +42,15 @@ class TestMARPDocumentDiscoverer:
             assert discoverer.extractor == mock_extractor_instance
             mock_storage_class.assert_called_once_with(tmpdir)
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.hashlib")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.hashlib")
+    @patch("discoverer.requests")
     def test_get_document_hash_success(
         self, mock_requests, mock_hashlib, mock_extractor_class, mock_storage_class
     ):
         """Test _get_document_hash generates hash from HTTP headers."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Mock DocumentStorage and PDFLinkExtractor
@@ -69,14 +78,14 @@ class TestMARPDocumentDiscoverer:
         )
         mock_hashlib.sha256.assert_called_once()
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.requests")
     def test_get_document_hash_http_error(
         self, mock_requests, mock_extractor_class, mock_storage_class
     ):
         """Test _get_document_hash handles HTTP errors."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_storage_class.return_value = Mock()
@@ -94,14 +103,14 @@ class TestMARPDocumentDiscoverer:
 
             assert result == ""
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.requests")
     def test_discover_document_urls_success(
         self, mock_requests, mock_extractor_class, mock_storage_class
     ):
         """Test discover_document_urls extracts PDF links from page."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Mock HTTP response
@@ -131,14 +140,14 @@ class TestMARPDocumentDiscoverer:
         mock_requests.get.assert_called_once()
         mock_extractor.get_pdf_urls.assert_called_once()
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.requests")
     def test_discover_document_urls_http_error(
         self, mock_requests, mock_extractor_class, mock_storage_class
     ):
         """Test discover_document_urls handles HTTP errors."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_storage_class.return_value = Mock()
@@ -154,11 +163,11 @@ class TestMARPDocumentDiscoverer:
 
             assert urls == []
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.os.path.exists")
-    @patch("services.ingestion.app.discoverer.hashlib")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.os.path.exists")
+    @patch("discoverer.hashlib")
+    @patch("discoverer.requests")
     def test_process_documents_new_document(
         self,
         mock_requests,
@@ -168,7 +177,7 @@ class TestMARPDocumentDiscoverer:
         mock_storage_class,
     ):
         """Test process_documents handles new document."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Mock storage
@@ -219,11 +228,11 @@ class TestMARPDocumentDiscoverer:
         assert store_call[1]["document_id"] == "newdocid"  # keyword arg
         assert store_call[1]["pdf_content"] == b"pdf content"
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.os.path.exists")
-    @patch("services.ingestion.app.discoverer.hashlib")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.os.path.exists")
+    @patch("discoverer.hashlib")
+    @patch("discoverer.requests")
     def test_process_documents_unchanged_document(
         self,
         mock_requests,
@@ -233,7 +242,7 @@ class TestMARPDocumentDiscoverer:
         mock_storage_class,
     ):
         """Test process_documents skips unchanged document."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Mock storage with existing document
@@ -278,11 +287,11 @@ class TestMARPDocumentDiscoverer:
         # Should not store since document unchanged
         mock_storage.store_document.assert_not_called()
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.os.path.exists")
-    @patch("services.ingestion.app.discoverer.hashlib")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.os.path.exists")
+    @patch("discoverer.hashlib")
+    @patch("discoverer.requests")
     def test_process_documents_updated_document(
         self,
         mock_requests,
@@ -292,7 +301,7 @@ class TestMARPDocumentDiscoverer:
         mock_storage_class,
     ):
         """Test process_documents handles updated document with different hash."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Mock storage with existing document
@@ -342,11 +351,11 @@ class TestMARPDocumentDiscoverer:
         # Should store updated document
         mock_storage.store_document.assert_called_once()
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.os.path.exists")
-    @patch("services.ingestion.app.discoverer.hashlib")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.os.path.exists")
+    @patch("discoverer.hashlib")
+    @patch("discoverer.requests")
     def test_process_documents_download_failure(
         self,
         mock_requests,
@@ -356,7 +365,7 @@ class TestMARPDocumentDiscoverer:
         mock_storage_class,
     ):
         """Test process_documents handles PDF download failure."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_storage = Mock()
@@ -388,11 +397,11 @@ class TestMARPDocumentDiscoverer:
         # Should not store or publish
         mock_storage.store_document.assert_not_called()
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.os.path.exists")
-    @patch("services.ingestion.app.discoverer.hashlib")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.os.path.exists")
+    @patch("discoverer.hashlib")
+    @patch("discoverer.requests")
     def test_process_documents_multiple_urls(
         self,
         mock_requests,
@@ -402,7 +411,7 @@ class TestMARPDocumentDiscoverer:
         mock_storage_class,
     ):
         """Test process_documents handles multiple URLs."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_storage = Mock()
@@ -450,11 +459,11 @@ class TestMARPDocumentDiscoverer:
         # Should process all URLs
         assert mock_storage.store_document.call_count == 3
 
-    @patch("services.ingestion.app.discoverer.DocumentStorage")
-    @patch("services.ingestion.app.discoverer.PDFLinkExtractor")
-    @patch("services.ingestion.app.discoverer.os.path.exists")
-    @patch("services.ingestion.app.discoverer.hashlib")
-    @patch("services.ingestion.app.discoverer.requests")
+    @patch("discoverer.DocumentStorage")
+    @patch("discoverer.PDFLinkExtractor")
+    @patch("discoverer.os.path.exists")
+    @patch("discoverer.hashlib")
+    @patch("discoverer.requests")
     def test_discover_and_process_documents_integration(
         self,
         mock_requests,
@@ -464,7 +473,7 @@ class TestMARPDocumentDiscoverer:
         mock_storage_class,
     ):
         """Test discover_and_process_documents combines discovery and processing."""
-        from services.ingestion.app.discoverer import MARPDocumentDiscoverer
+        from discoverer import MARPDocumentDiscoverer
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_storage = Mock()
