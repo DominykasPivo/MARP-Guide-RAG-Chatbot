@@ -177,7 +177,8 @@ def test_search_endpoint_returns_results():
     response = client.post("/search", json={"query": "exam policy", "top_k": 5})
     assert response.status_code == 200
     results = response.json()["results"]
-    assert len(results) == 5
+    # With deduplication, results may be fewer than top_k
+    assert 1 <= len(results) <= 5
     assert all("score" in r for r in results)
     assert all("title" in r for r in results)
     assert all("page" in r for r in results)
@@ -211,7 +212,9 @@ def test_search_missing_top_k():
     client = TestClient(global_app)
     response = client.post("/search", json={"query": "doc"})
     assert response.status_code == 200
-    assert len(response.json()["results"]) == 5
+    # With deduplication, results may be fewer than top_k
+    results = response.json()["results"]
+    assert 1 <= len(results) <= 5
 
 
 # Edge case: Very large top_k value (logic test)

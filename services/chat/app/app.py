@@ -57,8 +57,8 @@ try:
     logger.info(f"🧩 Configured LLM models: {_models_preview}")
     if not OPENROUTER_API_KEY:
         logger.warning("⚠️ OPENROUTER_API_KEY is not set; LLM calls will fail.")
-except Exception:
-    pass
+except Exception as e:
+    logger.error(f"Failed to configure LLM models: {e}")
 
 
 # Async version of chunk retrieval

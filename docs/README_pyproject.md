@@ -49,6 +49,8 @@ Recommended Python toolchain:
 | black   | Formatting   | Opinionated code formatter (no config needed)     |
 | isort   | Import sort  | Organises imports alphabetically by type          |
 | mypy    | Type checking| Static type analysis using type hints             |
+| bandit  | Security     | Scans code for common security issues             |
+| safety  | Security     | Checks dependencies for known vulnerabilities     |
 | ruff    | All-in-one   | Fast linter + formatter (alternative)             |
 
 ## Key Sections
@@ -86,19 +88,48 @@ isort --check-only src/ tests/
 mypy src/
 ```
 
+### Security Scanning
+```
+bandit -r src/
+safety scan -r requirements.txt
+```
+
 ## CI Workflow Steps
 
-The linting job in CI runs the following steps sequentially:
+The CI pipeline runs multiple jobs in parallel:
 
+### Lint Job
 1. **Checkout:** `actions/checkout` (checks out the repository)
 2. **Setup Python:** `actions/setup-python` with Python 3.11
-3. **Install tools:** `pip install flake8 black isort mypy`
-4. **Check formatting:** `black --check src/ tests/`
-5. **Check imports:** `isort --check-only src/ tests/`
-6. **Lint:** `flake8 src/ tests/`
-7. **Type check:** `mypy src/`
+3. **Install tools:** `pip install flake8 black isort`
+4. **Check formatting:** `black --check .`
+5. **Check imports:** `isort --check-only .`
+6. **Lint:** `flake8 services/`
 
-**Tip:** All steps run sequentially. If any step fails, the job fails and subsequent jobs are skipped.
+### Type-Check Job
+1. **Checkout:** `actions/checkout`
+2. **Setup Python:** `actions/setup-python` with Python 3.11
+3. **Install mypy:** `pip install mypy`
+4. **Install type stubs:** `pip install types-requests types-aiofiles`
+5. **Type check:** `mypy services/`
+
+### Security-Scan Job
+1. **Checkout:** `actions/checkout`
+2. **Setup Python:** `actions/setup-python` with Python 3.11
+3. **Install tools:** `pip install bandit safety`
+4. **Code security scan:** `bandit -r services/`
+5. **Dependency security scan:** `safety scan -r [all requirements files]`
+
+### Unit-Tests Job
+Runs unit tests with coverage across Python 3.10, 3.11, and 3.12.
+
+### Integration-Tests Job
+Starts Docker services, waits for health checks, and runs integration tests.
+
+### Build Job
+Builds Docker images and verifies service health endpoints.
+
+**Tip:** Jobs run in parallel where possible. If any job fails, dependent jobs are skipped.
 
 ## Why these tools were chosen
 
@@ -107,6 +138,10 @@ The linting job in CI runs the following steps sequentially:
 - **black (Formatting):** Selected for its simplicity and ability to enforce a consistent code style automatically. Requires minimal configuration and is widely accepted in the Python community, making it a reliable choice over alternatives like `yapf` or `autopep8`.
 
 - **mypy (Type Checking):** Preferred for its robust static type checking and seamless integration with modern Python codebases. Helps catch type errors before runtime, whereas alternatives like `pyright` are less commonly used in Python projects.
+
+- **bandit (Security Scanning):** Chosen for its ability to detect common security issues in Python code such as SQL injection, hardcoded passwords, and weak cryptographic practices. Lightweight and easy to integrate into CI/CD pipelines.
+
+- **safety (Dependency Security):** Selected for checking installed dependencies against known security vulnerabilities in the Safety DB and CVE databases. Helps maintain secure dependencies by identifying packages with known exploits.
 
 - **pylint (Bug Detection):** Used for its deeper static analysis, detection of code smells, unused variables, and potential bugs. Complements `flake8` by covering additional checks and providing more detailed reports than tools like `pyflakes`.
 

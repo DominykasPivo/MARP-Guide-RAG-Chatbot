@@ -64,20 +64,27 @@ class Retriever:
             )
 
             chunks: List[Dict[str, Any]] = []
+            seen = set()
             for result in search_results:
                 payload = result.payload or {}
+                text = payload.get("text", "")
+                url = payload.get("url", "")
+                dedup_key = (text.strip(), url.strip())
+                if dedup_key in seen:
+                    continue
+                seen.add(dedup_key)
                 chunks.append(
                     {
                         "id": result.id,
-                        "text": payload.get("text", ""),
+                        "text": text,
                         "relevanceScore": result.score,
                         "title": payload.get("title", "MARP Document"),
                         "page": payload.get("page", 0),
-                        "url": payload.get("url", ""),
+                        "url": url,
                         "chunkIndex": payload.get("chunk_index", 0),
                     }
                 )
-            logger.info(f"✅ Retrieved {len(chunks)} chunks from Qdrant")
+            logger.info(f"✅ Retrieved {len(chunks)} unique chunks from Qdrant")
             return chunks
         except Exception as e:
             logger.error(f"❌ Search failed: {e}", exc_info=True)

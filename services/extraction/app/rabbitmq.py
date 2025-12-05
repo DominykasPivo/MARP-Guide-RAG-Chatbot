@@ -57,8 +57,7 @@ class EventConsumer:
 
         # Add jitter
         jitter = delay * JITTER_RANGE
-        delay += random.uniform(-jitter, jitter)
-
+        delay += random.uniform(-jitter, jitter)  # nosec B311
         return max(0.0, delay)  # Ensure non-negative delay
 
     def _connect(self) -> bool:

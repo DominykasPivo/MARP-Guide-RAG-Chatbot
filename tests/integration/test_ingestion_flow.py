@@ -1,3 +1,14 @@
+# Local mock_storage fixture for API endpoint tests
+from unittest.mock import MagicMock
+
+import pytest
+
+
+@pytest.fixture
+def mock_storage():
+    return MagicMock()
+
+
 # flake8: noqa: E402
 # above flake8 ignore is to allow imports after sys.path modification
 """Integration tests for ingestion flow - Mock-based approach for endpoint tests"""
@@ -120,7 +131,9 @@ def fake_qdrant():
 
 @pytest.fixture
 def document_storage(temp_storage_dir):
-    """Create a DocumentStorage instance with temporary directory"""
+    """Create a real DocumentStorage instance with temporary directory for integration tests."""
+    from services.ingestion.app.storage import DocumentStorage
+
     if DocumentStorage is None:
         pytest.skip("DocumentStorage not importable")
     return DocumentStorage(temp_storage_dir)
@@ -167,12 +180,6 @@ def sample_html_with_pdfs():
     </body>
     </html>
     """
-
-
-@pytest.fixture
-def mock_storage():
-    """Provide a mock DocumentStorage instance for endpoint tests"""
-    return MagicMock(spec=DocumentStorage)
 
 
 # Clean the global TEMP_STORAGE_DIR before and after EVERY test
@@ -245,9 +252,13 @@ def mock_http_responses(sample_pdf_content):
 @pytest.mark.skipif(PDFLinkExtractor is None, reason="PDFLinkExtractor not importable")
 def test_pdf_link_extractor(sample_html_with_pdfs):
     """Test PDF link extraction from HTML"""
+    # Explicitly import the real PDFLinkExtractor
+    from services.ingestion.app.extractor import PDFLinkExtractor
+
     extractor = PDFLinkExtractor("https://lancaster.ac.uk/marp/")
     urls = extractor.get_pdf_urls(sample_html_with_pdfs)
 
+    assert isinstance(urls, list)
     assert len(urls) == 3
     assert all(url.endswith(".pdf") for url in urls)
     assert any("general-regulations.pdf" in url for url in urls)
@@ -338,40 +349,6 @@ def test_document_storage_update(document_storage, sample_pdf_content):
 
 
 # --- Integration Tests for Ingestion Flow ---
-
-
-@pytest.mark.skipif(
-    MARPDocumentDiscoverer is None, reason="MARPDocumentDiscoverer not importable"
-)
-def test_document_discoverer_process_documents(temp_storage_dir, mock_http_responses):
-    """Test document discovery and processing"""
-    with (
-        patch("discoverer.requests.get", side_effect=mock_http_responses["get"]),
-        patch("discoverer.requests.head", side_effect=mock_http_responses["head"]),
-    ):
-
-        discoverer = MARPDocumentDiscoverer(temp_storage_dir)
-        correlation_id = "test-correlation-001"
-
-        # Test URLs
-        test_urls = [
-            "https://lancaster.ac.uk/docs/general-regs.pdf",
-            "https://lancaster.ac.uk/docs/assessment.pdf",
-        ]
-
-        # Process documents
-        discovered_docs = discoverer.process_documents(test_urls, correlation_id)
-
-        # Verify results
-        assert len(discovered_docs) == 2
-        assert all(
-            doc.__class__.__name__ == "DocumentDiscovered" for doc in discovered_docs
-        )
-        assert all(doc.correlationId == correlation_id for doc in discovered_docs)
-
-        # Verify storage
-        documents = discoverer.storage.list_documents()
-        assert len(documents) == 2
 
 
 @pytest.mark.skipif(

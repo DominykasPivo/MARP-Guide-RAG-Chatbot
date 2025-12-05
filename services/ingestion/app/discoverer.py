@@ -49,7 +49,7 @@ class MARPDocumentDiscoverer:
             correlation_id: Optional correlation ID for request tracing
         """
         try:
-            response = requests.head(url, allow_redirects=True)
+            response = requests.head(url, allow_redirects=True, timeout=10)
             response.raise_for_status()
 
             # Extract document title from the URL or headers
@@ -71,7 +71,7 @@ class MARPDocumentDiscoverer:
                     hash_input = f"{title}-{content_length}"
 
             # Generate hash including the title
-            return hashlib.md5(hash_input.encode()).hexdigest()
+            return hashlib.sha256(hash_input.encode()).hexdigest()
         except requests.RequestException as e:
             logger.error(
                 f"Failed to get document hash for {url}: {str(e)}",
@@ -94,7 +94,7 @@ class MARPDocumentDiscoverer:
                 f"Fetching content from {self.BASE_URL}...",
                 extra={"correlation_id": correlation_id},
             )
-            response = requests.get(self.BASE_URL)
+            response = requests.get(self.BASE_URL, timeout=30)
             response.raise_for_status()
 
             logger.info(
@@ -156,8 +156,8 @@ class MARPDocumentDiscoverer:
                 extra={"correlation_id": correlation_id},
             )
 
-            # Generate document ID (MD5 hash of URL)
-            doc_id = hashlib.md5(url.encode()).hexdigest()
+            # Generate document ID (SHA256 hash of URL)
+            doc_id = hashlib.sha256(url.encode()).hexdigest()
 
             # Check if document is new or updated
             pdf_path = os.path.join(
@@ -182,7 +182,7 @@ class MARPDocumentDiscoverer:
                     )
                 # Download PDF
                 try:
-                    response = requests.get(url)
+                    response = requests.get(url, timeout=60)
                     response.raise_for_status()
                     pdf_content = response.content
                 except Exception as e:

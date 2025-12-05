@@ -36,7 +36,7 @@ class EventConsumer:
             INITIAL_RETRY_DELAY * (BACKOFF_MULTIPLIER**attempt), MAX_RETRY_DELAY
         )
         jitter = delay * JITTER_RANGE
-        delay += random.uniform(-jitter, jitter)
+        delay += random.uniform(-jitter, jitter)  # nosec B311
         return max(0, delay)  # type: ignore[return-value]
 
     def _connect(self) -> bool:
