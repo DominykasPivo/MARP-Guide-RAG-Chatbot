@@ -108,7 +108,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-22.04
-    needs: [lint, unit-test, type-check, security-scan]
+    needs: [lint, unit-tests, type-check, security-scan]
     env:
       DATA_DIR: ${{ github.workspace }}/data
     strategy:
