@@ -113,9 +113,10 @@ jobs:
       DATA_DIR: ${{ github.workspace }}/data
     strategy:
       fail-fast: true
-      matrix:
-        python-version: ['3.10', '3.11', '3.12']
     steps:
+    steps:
+      - name: Prune Docker system
+        run: docker system prune -af
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -129,7 +130,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
