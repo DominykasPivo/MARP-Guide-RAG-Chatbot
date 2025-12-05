@@ -103,8 +103,8 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: coverage.xml
+          name: test-coverage-${{ github.job }}-${{ github.run_number }}
+          path: path/to/results
 
   integration-tests:
     runs-on: ubuntu-22.04
