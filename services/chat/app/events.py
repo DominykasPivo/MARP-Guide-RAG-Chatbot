@@ -1,28 +1,32 @@
-
 import json
-import uuid
-import os
-from datetime import datetime, timezone
-from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List
-import pika
 import logging
+import os
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Dict, Optional
 
-logger = logging.getLogger('chat.events')
+import pika
 
-EXCHANGE_NAME = 'document_events'
+logger = logging.getLogger("chat.events")
+
+EXCHANGE_NAME = "document_events"
+
 
 class EventTypes(Enum):
     """Event types for the chat service."""
+
     QUERY_RECEIVED = "queryreceived"
     CHUNKS_RETRIEVED = "chunksretrieved"
     RESPONSE_GENERATED = "responsegenerated"
     ANSWER_GENERATED = "answergenerated"
 
+
 @dataclass
 class QueryReceived:
     """Outgoing event when user submits a query."""
+
     eventType: str
     eventId: str
     timestamp: str
@@ -30,7 +34,7 @@ class QueryReceived:
     source: str
     version: str
     payload: Dict
-    
+
     # Schema matches Attachment #1:
     # "payload": {
     #     "queryId": "string",
@@ -38,9 +42,11 @@ class QueryReceived:
     #     "queryText": "string"
     # }
 
+
 @dataclass
 class ChunksRetrieved:
     """Incoming event from retrieval service."""
+
     eventType: str
     eventId: str
     timestamp: str
@@ -48,7 +54,7 @@ class ChunksRetrieved:
     source: str
     version: str
     payload: Dict
-    
+
     # Schema matches Attachment #2 + SPEC REQUIREMENTS:
     # "payload": {
     #     "queryId": "string",
@@ -66,9 +72,11 @@ class ChunksRetrieved:
     #     "retrievalModel": "string"
     # }
 
+
 @dataclass
 class ResponseGenerated:
     """Outgoing event after generating answer."""
+
     eventType: str
     eventId: str
     timestamp: str
@@ -76,7 +84,7 @@ class ResponseGenerated:
     source: str
     version: str
     payload: Dict
-    
+
     # "payload": {
     #     "queryId": "string",
     #     "userId": "string",
@@ -92,9 +100,11 @@ class ResponseGenerated:
     #     "retrievalModel": "string"
     # }
 
+
 @dataclass
 class AnswerGenerated:
     """✅ Event after LLM generates answer (matches Attachment #3)."""
+
     eventType: str
     eventId: str
     timestamp: str
@@ -102,7 +112,7 @@ class AnswerGenerated:
     source: str
     version: str
     payload: Dict
-    
+
     # Schema matches Attachment #3:
     # "payload": {
     #     "queryId": "string",
@@ -118,9 +128,10 @@ class AnswerGenerated:
     #     "generatedAt": "string (ISO 8601)"
     # }
 
-def publish_event(event_type: str, payload: dict, rabbitmq_url: str = None):
+
+def publish_event(event_type: str, payload: dict, rabbitmq_url: Optional[str] = None):
     """Publish an event to RabbitMQ.
-    
+
     Args:
         event_type: Type of event (e.g., "QueryReceived")
         payload: Event payload data
@@ -128,13 +139,15 @@ def publish_event(event_type: str, payload: dict, rabbitmq_url: str = None):
     """
     if rabbitmq_url is None:
         rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-    
+
     correlation_id = payload.get("queryId", str(uuid.uuid4()))
-    
+
     try:
         connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
         channel = connection.channel()
-        channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='topic', durable=True)
+        channel.exchange_declare(
+            exchange=EXCHANGE_NAME, exchange_type="topic", durable=True
+        )
 
         event = {
             "eventType": event_type,
@@ -143,7 +156,7 @@ def publish_event(event_type: str, payload: dict, rabbitmq_url: str = None):
             "correlationId": correlation_id,
             "source": "chat-service",
             "version": "1.0",
-            "payload": payload
+            "payload": payload,
         }
 
         channel.basic_publish(
@@ -151,45 +164,49 @@ def publish_event(event_type: str, payload: dict, rabbitmq_url: str = None):
             routing_key=event_type.lower(),
             body=json.dumps(event),
             properties=pika.BasicProperties(
-                delivery_mode=2,
-                correlation_id=correlation_id
-            )
+                delivery_mode=2, correlation_id=correlation_id
+            ),
         )
-        
-        logger.info(f"Published {event_type} event", extra={'correlation_id': correlation_id})
+
+        logger.info(
+            f"Published {event_type} event", extra={"correlation_id": correlation_id}
+        )
         connection.close()
         return True
-        
-    except Exception as e:
-        logger.error(f"Failed to publish event: {str(e)}", extra={'correlation_id': correlation_id})
-        return False
-    
 
-def publish_query_event(query: str, correlation_id: str, rabbitmq_url: str = None):
+    except Exception as e:
+        logger.error(
+            f"Failed to publish event: {str(e)}",
+            extra={"correlation_id": correlation_id},
+        )
+        return False
+
+
+def publish_query_event(
+    query: str, correlation_id: str, rabbitmq_url: Optional[str] = None
+):
     """Publish a queryreceived event to RabbitMQ (simple version for chat-service)."""
     if rabbitmq_url is None:
         rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
     try:
-        logger.info(f"🔌 Publishing query event to RabbitMQ")
+        logger.info("🔌 Publishing query event to RabbitMQ")
         connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
         channel = connection.channel()
         channel.exchange_declare(
-            exchange=EXCHANGE_NAME,
-            exchange_type='topic',
-            durable=True
+            exchange=EXCHANGE_NAME, exchange_type="topic", durable=True
         )
         event = {
-            'query': query,
-            'correlation_id': correlation_id,
-            'timestamp': datetime.now(timezone.utc).timestamp()
+            "query": query,
+            "correlation_id": correlation_id,
+            "timestamp": datetime.now(timezone.utc).timestamp(),
         }
         channel.basic_publish(
             exchange=EXCHANGE_NAME,
-            routing_key='queryreceived',
+            routing_key="queryreceived",
             body=json.dumps(event),
             properties=pika.BasicProperties(
                 delivery_mode=2,  # make message persistent
-            )
+            ),
         )
         logger.info(f"📤 Published queryreceived event: {correlation_id}")
         connection.close()
