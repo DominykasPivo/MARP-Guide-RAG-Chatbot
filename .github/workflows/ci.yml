@@ -98,13 +98,20 @@ jobs:
         run: pip install pytest-cov==5.0.0 coverage==7.5.1
 
       - name: Run unit tests
-        run: pytest tests/unit/ --cov --cov-report=xml:tests/coverage.xml
+        run: pytest tests/unit/ --cov --cov-report=xml:coverage/unit.xml
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: test-coverage-${{ matrix.python-version }}-${{ github.run_number }}
-          path: tests/coverage.xml
+          path: coverage/unit.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/unit.xml
+          flags: unit-tests
+          name: unit-${{ matrix.python-version }}
 
   integration-tests:
     runs-on: ubuntu-22.04
@@ -133,8 +140,18 @@ jobs:
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
+      - name: Install coverage tools
+        run: pip install pytest pytest-cov==5.0.0 coverage==7.5.1
+
       - name: Run integration tests
-        run: pytest tests/integration/ -v
+        run: pytest tests/integration/ -v --cov --cov-report=xml:coverage/integration.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/integration.xml
+          flags: integration-tests
+          name: integration-tests
 
   build:
     runs-on: ubuntu-22.04
