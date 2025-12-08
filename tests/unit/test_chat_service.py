@@ -279,6 +279,3 @@ class TestCorrelationIDPropagation:
         )
 
         assert event.correlationId == corr_id
-
-
-

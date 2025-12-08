@@ -19,7 +19,6 @@ from services.retrieval.app.retrieval_events import (
     RetrievalCompleted,
 )
 
-
 # Import only the event dataclasses from each events.py
 EVENT_DATACLASSES = [
     DocumentDiscovered,
