@@ -1,5 +1,7 @@
-import tiktoken
 import re
+
+import tiktoken
+
 
 def chunk_document(text: str, metadata: dict, max_tokens: int = 400) -> list:
     """
@@ -13,26 +15,25 @@ def chunk_document(text: str, metadata: dict, max_tokens: int = 400) -> list:
         List of dicts: [{"text": ..., "metadata": {...}}, ...]
     """
 
-    # Chunking strategy (Semantic): Paragraph level > Sentence level > Token level
-
+    # Chunking strategy (Semantic): Paragraph level > Sentence level > Token
+    # level
 
     # Split text into paragraphs using double newlines (\n\n)
     # This preserves semantic meaning by keeping natural paragraph boundaries
-   
-    paragraphs = text.split('\n\n')
+
+    paragraphs = text.split("\n\n")
     chunks = []
     current_chunk = ""
-    current_tokens = 0
     chunk_start = 0
     chunk_index = 0
-    
-    # Use tiktoken's cl100k_base encoding 
+
+    # Use tiktoken's cl100k_base encoding
     enc = tiktoken.get_encoding("cl100k_base")
 
     def split_by_tokens(text, max_tokens):
-        """Split a long text into smaller pieces by tokens, preferably on sentence boundaries."""
-        # Try to split by sentences (simple regex, not perfect for all languages)
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        """Split long text by tokens, preferring sentence boundaries."""
+        # Split by sentences (simple regex)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
         pieces = []
         current = ""
         for sent in sentences:
@@ -46,7 +47,7 @@ def chunk_document(text: str, metadata: dict, max_tokens: int = 400) -> list:
                 if len(enc.encode(sent)) > max_tokens:
                     tokens = enc.encode(sent)
                     for i in range(0, len(tokens), max_tokens):
-                        subtext = enc.decode(tokens[i:i+max_tokens])
+                        subtext = enc.decode(tokens[i : i + max_tokens])
                         pieces.append(subtext.strip())
                     current = ""
                 else:
@@ -65,7 +66,7 @@ def chunk_document(text: str, metadata: dict, max_tokens: int = 400) -> list:
         else:
             subchunks = [para]
         for subchunk in subchunks:
-            subchunk_tokens = len(enc.encode(subchunk))
+            len(enc.encode(subchunk))
             if current_chunk:
                 combined = current_chunk + "\n\n" + subchunk
                 combined_tokens = len(enc.encode(combined))
@@ -73,46 +74,45 @@ def chunk_document(text: str, metadata: dict, max_tokens: int = 400) -> list:
                     chunk_text = current_chunk.strip()
                     chunk_end = chunk_start + len(chunk_text)
                     chunk_metadata = metadata.copy()
-                    chunk_metadata.update({
-                        "chunk_index": chunk_index,
-                        "chunk_start": chunk_start,
-                        "chunk_end": chunk_end,
-                        "chunk_length": len(chunk_text)
-                    })
-                    chunks.append({
-                        "text": chunk_text,
-                        "metadata": chunk_metadata
-                    })
+                    chunk_metadata.update(
+                        {
+                            "chunk_index": chunk_index,
+                            "chunk_start": chunk_start,
+                            "chunk_end": chunk_end,
+                            "chunk_length": len(chunk_text),
+                        }
+                    )
+                    chunks.append({"text": chunk_text, "metadata": chunk_metadata})
                     chunk_index += 1
                     chunk_start = chunk_end + 2  # +2 for the two newlines
                     current_chunk = subchunk
-                    current_tokens = subchunk_tokens
                 else:
                     current_chunk = combined
-                    current_tokens = combined_tokens
             else:
                 current_chunk = subchunk
-                current_tokens = subchunk_tokens
     # Add the last chunk if any
     if current_chunk.strip():
         chunk_text = current_chunk.strip()
         chunk_end = chunk_start + len(chunk_text)
         chunk_metadata = metadata.copy()
-        chunk_metadata.update({
-            "chunk_index": chunk_index,
-            "chunk_start": chunk_start,
-            "chunk_end": chunk_end,
-            "chunk_length": len(chunk_text)
-        })
-        chunks.append({
-            "text": chunk_text,
-            "metadata": chunk_metadata
-        })
+        chunk_metadata.update(
+            {
+                "chunk_index": chunk_index,
+                "chunk_start": chunk_start,
+                "chunk_end": chunk_end,
+                "chunk_length": len(chunk_text),
+            }
+        )
+        chunks.append({"text": chunk_text, "metadata": chunk_metadata})
     # Check for offset correctness and overlaps
     for i in range(1, len(chunks)):
-        prev = chunks[i-1]["metadata"]
-        curr = chunks[i]["metadata"]
-        if curr["chunk_start"] < prev["chunk_end"]:
+        prev: dict = chunks[i - 1]["metadata"]  # type: ignore
+        curr: dict = chunks[i]["metadata"]  # type: ignore
+        if curr["chunk_start"] < prev["chunk_end"]:  # type: ignore
             import logging
-            logging.warning(f"Chunk offset overlap or out-of-order: chunk {i-1} ends at {prev['chunk_end']}, chunk {i} starts at {curr['chunk_start']}")
+
+            logging.warning(
+                f"Chunk offset overlap or out-of-order: chunk {i - 1} ends at "
+                f"{prev['chunk_end']}, chunk {i} starts at {curr['chunk_start']}"
+            )
     return chunks

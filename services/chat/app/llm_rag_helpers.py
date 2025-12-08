@@ -150,7 +150,8 @@ def extract_citations(chunks: List[Chunk]) -> List[Citation]:
             citations.append(Citation(
                 title=chunk.title,
                 page=chunk.page,
-                url=chunk.url
+                url=chunk.url,
+                score=chunk.score
             ))
             
     # As a minimum, ensure at least one citation if chunks were retrieved

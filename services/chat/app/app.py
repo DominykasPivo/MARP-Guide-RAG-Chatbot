@@ -1,4 +1,3 @@
-
 import os
 import sys
 import time
@@ -19,6 +18,7 @@ from events import publish_query_event
 
 class ChatRequestModel(BaseModel):
     query: str
+    selected_models: list[str] = None  # Add this for frontend LLM selection
 
 
 # Configure logging
@@ -55,6 +55,14 @@ try:
 except Exception:
     pass
 
+
+def filter_top_citations(citations: list[Citation], top_n: int = 3) -> list[Citation]:
+    """Filter and return only top N citations by score."""
+    if not citations:
+        return []
+    # Sort by score (descending) and take top N
+    sorted_citations = sorted(citations, key=lambda c: c.score, reverse=True)
+    return sorted_citations[:top_n]
 
 
 # Async version of chunk retrieval
@@ -97,6 +105,12 @@ async def health():
     return {"status": "healthy"}
 
 
+@app.get('/models')
+async def get_available_models():
+    """Get list of available LLM models"""
+    models = [m.strip() for m in LLM_MODELS if m.strip()]
+    return {"models": models}
+
 
 @app.post('/chat')
 async def chat(request: Request, chat_request: ChatRequestModel):
@@ -109,6 +123,15 @@ async def chat(request: Request, chat_request: ChatRequestModel):
         correlation_id = str(uuid.uuid4())
         logger.info(f"💬 Received chat request: '{query}' (correlation_id: {correlation_id})")
 
+        # Use selected models or fall back to all configured models
+        models_to_use = chat_request.selected_models if chat_request.selected_models else LLM_MODELS
+        models_to_use = [m.strip() for m in models_to_use if m.strip()]
+        
+        if not models_to_use:
+            raise HTTPException(status_code=400, detail="No valid models selected")
+        
+        logger.info(f"🤖 Using models: {models_to_use}")
+
         # ✅ PUBLISH queryreceived EVENT - THIS IS THE KEY ADDITION
         publish_query_event(query, correlation_id)
 
@@ -118,7 +141,7 @@ async def chat(request: Request, chat_request: ChatRequestModel):
 
         if not chunks_data:
             logger.warning("⚠️ No chunks found for query; returning multi-LLM fallback response")
-            # Return a response per configured model to keep schema consistent
+            # Return a response per selected model to keep schema consistent
             fallback_responses = [
                 LLMResponse(
                     model=m.strip(),
@@ -126,7 +149,7 @@ async def chat(request: Request, chat_request: ChatRequestModel):
                     citations=[],
                     generation_time=0.0
                 )
-                for m in LLM_MODELS if m.strip()
+                for m in models_to_use
             ]
             response = ChatResponse(
                 query=query,
@@ -138,12 +161,15 @@ async def chat(request: Request, chat_request: ChatRequestModel):
         chunks = [Chunk(**chunk) for chunk in chunks_data]
         logger.info(f"✅ Processing {len(chunks)} chunks")
 
-
         # Generate answers from multiple LLMs in parallel
-        logger.info(f"🤖 Generating answers from {len(LLM_MODELS)} models in parallel...")
-        llm_responses = await generate_answers_parallel(query, chunks, api_key=OPENROUTER_API_KEY, models=LLM_MODELS)
+        logger.info(f"🤖 Generating answers from {len(models_to_use)} models in parallel...")
+        llm_responses = await generate_answers_parallel(query, chunks, api_key=OPENROUTER_API_KEY, models=models_to_use)
 
-        logger.info(f"✅ Generated {len(llm_responses)} responses from different models")
+        # Filter citations for each response (keep top 3 by score)
+        for response in llm_responses:
+            response.citations = filter_top_citations(response.citations, top_n=3)
+
+        logger.info(f"✅ Generated {len(llm_responses)} responses with filtered citations")
 
         response = ChatResponse(
             query=query,
