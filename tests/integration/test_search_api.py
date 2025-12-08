@@ -139,15 +139,6 @@ def test_search_returns_relevant_results(vector_db_fixture):
     assert "text" in results[0]
 
 
-def test_search_returns_relevant_results_vector_db(vector_db_fixture):
-    # Query embedding similar to first chunk
-    results = vector_db_fixture.search([1, 0], top_k=2)
-    assert len(results) == 2
-    assert results[0]["metadata"]["title"] == "General Regulations"
-    assert results[0]["metadata"]["page"] == 12
-    assert "text" in results[0]
-
-
 # Patch QdrantClient for endpoint/integration tests
 @pytest.fixture(autouse=True)
 def patch_qdrantclient():
