@@ -111,20 +111,9 @@ jobs:
     needs: [lint, unit-tests, type-check, security-scan]
     env:
       DATA_DIR: ${{ github.workspace }}/data
-    strategy:
-      fail-fast: true
     steps:
-      - name: Prune Docker system
-        run: docker system prune -af
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Start services
-        run: docker compose -f docker-compose.test.yml up -d
-
-      - name: Wait for services
-        run: chmod +x ./scripts/wait-for-services.sh && ./scripts/wait-for-services.sh
-        timeout-minutes: 5
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -141,12 +130,11 @@ jobs:
           pip install -r services/chat/requirements.txt
           pip install -r services/retrieval/requirements.txt
 
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+
       - name: Run integration tests
         run: pytest tests/integration/ -v
-
-      - name: Tear down services
-        if: always()
-        run: docker compose down -v
 
   build:
     runs-on: ubuntu-22.04
@@ -154,6 +142,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Prune Docker system
+        run: docker system prune -af --volumes
 
       - name: Build all Docker images
         run: docker compose build
