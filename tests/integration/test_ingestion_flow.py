@@ -13,8 +13,8 @@ def mock_storage():
 # above flake8 ignore is to allow imports after sys.path modification
 """Integration tests for ingestion flow - Mock-based approach for endpoint tests."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(
     0,
