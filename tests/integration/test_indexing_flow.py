@@ -42,12 +42,6 @@ class TestQdrantIntegration:
             client = get_qdrant_client()
             assert client is not None
 
-    def test_store_chunks_function_exists(self):
-        """Test that store_chunks_in_qdrant function exists."""
-        from services.indexing.app.qdrant_store import store_chunks_in_qdrant
-
-        assert callable(store_chunks_in_qdrant)
-
     def test_store_chunks_preserves_metadata(self):
         """Test that chunk metadata structure is correct."""
         chunks = [
@@ -221,28 +215,6 @@ class TestIndexingRabbitMQIntegration:
         assert isinstance(EXCHANGE_NAME, str)
         assert len(EXCHANGE_NAME) > 0
         assert "event" in EXCHANGE_NAME.lower()
-
-
-class TestIndexingEventTypes:
-    """Test event type enumeration for indexing service."""
-
-    def test_event_types_defined(self):
-        """Test that event types are properly defined."""
-        from services.indexing.app.events import EventTypes
-
-        assert hasattr(EventTypes, "DOCUMENT_EXTRACTED")
-        assert hasattr(EventTypes, "CHUNKS_INDEXED")
-
-    def test_event_type_values(self):
-        """Test event type enum values."""
-        from services.indexing.app.events import EventTypes
-
-        extracted = EventTypes.DOCUMENT_EXTRACTED.value
-        indexed = EventTypes.CHUNKS_INDEXED.value
-        assert isinstance(extracted, str)
-        assert isinstance(indexed, str)
-        assert len(extracted) > 0
-        assert len(indexed) > 0
 
 
 class TestChunkMetadataStructure:

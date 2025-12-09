@@ -158,6 +158,7 @@ def query(data: dict = Body(...)):
                 "title": c.get("title", "Unknown"),
                 "page": c.get("page", 0),
                 "url": c.get("url", ""),
+                "score": c.get("relevanceScore", 0.0),
             }
             for c in chunks
         ]

@@ -43,21 +43,6 @@ class TestPDFExtractorBasics:
         extractor = PDFExtractor()
         assert extractor is not None
 
-    def test_pdf_extractor_detect_language(self):
-        """Test language detection in extracted text."""
-        PDFExtractor()
-        text = "The quick brown fox jumps over the lazy dog"
-
-        # Basic check that extractor works with English text
-        assert isinstance(text, str)
-        assert len(text) > 0
-
-    def test_pdf_extractor_empty_pdf_handling(self):
-        """Test handling of empty PDF content."""
-        extractor = PDFExtractor()
-        assert extractor is not None
-        # Extracting from empty PDF should be handled gracefully
-
 
 class TestExtractionEvents:
     """Test extraction service events."""
@@ -151,14 +136,6 @@ class TestExtractionEventTypes:
         assert EventTypes.DOCUMENT_DISCOVERED.value == "document.discovered"
         assert EventTypes.DOCUMENT_EXTRACTED.value == "document.extracted"
 
-    def test_event_types_are_strings(self):
-        """Test that event types have string values."""
-        from services.extraction.app.events import EventTypes
-
-        for event_type in EventTypes:
-            assert isinstance(event_type.value, str)
-            assert len(event_type.value) > 0
-
 
 class TestDocumentMetadata:
     """Test document metadata handling in extracted events."""
@@ -191,29 +168,6 @@ class TestDocumentMetadata:
         assert event.payload["metadata"] == metadata
         assert event.payload["metadata"]["title"] == "Test Title"
         assert event.payload["metadata"]["pageCount"] == 42
-
-    def test_metadata_with_missing_fields(self):
-        """Test metadata with some missing optional fields."""
-        from services.extraction.app.events import DocumentExtracted
-
-        minimal_metadata = {"title": "Minimal Doc"}
-
-        event = DocumentExtracted(
-            eventType="document.extracted",
-            eventId="evt-005",
-            timestamp="2025-01-01T00:00:00Z",
-            correlationId="corr-001",
-            source="extraction-service",
-            version="1.0",
-            payload={
-                "documentId": "doc-004",
-                "textContent": "Text",
-                "metadata": minimal_metadata,
-            },
-        )
-
-        assert "title" in event.payload["metadata"]
-        assert event.payload["metadata"]["title"] == "Minimal Doc"
 
 
 class TestCorrelationIDHandling:

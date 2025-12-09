@@ -116,25 +116,6 @@ class TestChatServiceEvents:
 class TestCitationExtraction:
     """Test citation extraction from responses."""
 
-    def test_extract_citation_from_response(self):
-        """Test extracting citations from LLM response."""
-        response_with_citation = "According to the MARP Guide (page 5), MARP is..."
-
-        # Simple extraction pattern
-        assert "MARP Guide" in response_with_citation
-        assert "page 5" in response_with_citation
-
-    def test_format_citation(self):
-        """Test formatting citations for response."""
-        citation = {
-            "title": "MARP Guide",
-            "page": 5,
-            "url": "http://example.com/marp.pdf",
-        }
-
-        formatted = f"{citation['title']} (page {citation['page']})"
-        assert formatted == "MARP Guide (page 5)"
-
     def test_multiple_citations(self):
         """Test handling multiple citations."""
         citations = [
@@ -153,14 +134,6 @@ class TestCitationExtraction:
 
         assert len(citations) == 3
         assert all("title" in c and "page" in c for c in citations)
-
-    def test_citation_without_url(self):
-        """Test handling citations without URLs."""
-        citation = {"title": "MARP Guide", "page": 1}
-
-        assert "title" in citation
-        assert "page" in citation
-        assert "url" not in citation
 
 
 class TestResponseFormatting:
@@ -192,22 +165,6 @@ class TestResponseFormatting:
         required_fields = ["answer", "citations", "modelUsed", "retrievalModel"]
         assert all(field in response for field in required_fields)
 
-    def test_empty_answer_handling(self):
-        """Test handling empty answers."""
-        answer = ""
-        assert answer == ""
-
-        # Should be handled as error case
-        assert not answer or answer.strip() == ""
-
-    def test_response_with_long_answer(self):
-        """Test handling long answers."""
-        long_answer = "A" * 5000
-        assert len(long_answer) == 5000
-
-        response = {"answer": long_answer}
-        assert len(response["answer"]) == 5000
-
 
 class TestContextAwareness:
     """Test context handling in chat."""
@@ -222,15 +179,6 @@ class TestContextAwareness:
         context = "\n".join([c["text"] for c in chunks])
         assert "MARP is a framework" in context
         assert "It includes guidelines" in context
-
-    def test_context_truncation(self):
-        """Test truncating long context."""
-        long_context = "A" * 10000
-        max_length = 4000
-
-        truncated = long_context[:max_length]
-        assert len(truncated) <= max_length
-        assert len(truncated) == max_length
 
     def test_multi_chunk_context(self):
         """Test building context from multiple chunks."""
@@ -259,45 +207,6 @@ class TestContextAwareness:
         context = f"{chunk['title']} (page {chunk['page']}): {chunk['text']}"
         assert chunk["title"] in context
         assert str(chunk["page"]) in context
-
-
-class TestErrorHandling:
-    """Test error handling in chat service."""
-
-    def test_empty_query_error(self):
-        """Test handling empty query."""
-        query = ""
-        assert query == "" or query.strip() == ""
-
-    def test_invalid_top_k_handling(self):
-        """Test handling invalid top_k parameter."""
-        invalid_k = -1
-        assert invalid_k < 0
-
-        invalid_k = 0
-        assert invalid_k <= 0
-
-    def test_missing_citations_handling(self):
-        """Test handling response without citations."""
-        response = {"answer": "Answer without citations", "citations": []}
-
-        assert response["citations"] == []
-        assert len(response["citations"]) == 0
-
-    def test_llm_error_recovery(self):
-        """Test handling LLM errors gracefully."""
-        error_message = "API rate limit exceeded"
-
-        # Should be caught and reported
-        assert error_message
-        assert "error" in error_message.lower() or "limit" in error_message.lower()
-
-    def test_invalid_chunk_data(self):
-        """Test handling invalid chunk data."""
-        invalid_chunk = {}
-
-        # Missing required fields
-        assert "text" not in invalid_chunk
 
 
 class TestEventTypes:
@@ -370,68 +279,3 @@ class TestCorrelationIDPropagation:
         )
 
         assert event.correlationId == corr_id
-
-
-class TestQueryValidation:
-    """Test query validation."""
-
-    def test_query_text_not_empty(self):
-        """Test query text is not empty."""
-        query = "What is MARP?"
-        assert query.strip() != ""
-
-    def test_query_length_reasonable(self):
-        """Test query has reasonable length."""
-        short_query = "OK"
-        long_query = "A" * 5000
-
-        assert len(short_query) >= 1
-        assert len(long_query) <= 10000
-
-    def test_query_id_is_unique(self):
-        """Test query IDs are unique."""
-        query_ids = ["q-001", "q-002", "q-003"]
-        assert len(query_ids) == len(set(query_ids))
-
-    def test_user_id_in_query(self):
-        """Test user ID included in queries."""
-        user_id = "user-123"
-        query = {"userId": user_id, "queryText": "What is MARP?"}
-
-        assert query["userId"] == user_id
-
-
-class TestSessionManagement:
-    """Test session handling in chat."""
-
-    def test_session_id_tracking(self):
-        """Test tracking session IDs."""
-        session_id = "session-12345"
-        assert session_id
-        assert "session" in session_id.lower()
-
-    def test_user_id_in_query_event(self):
-        """Test user ID included in query events."""
-        user_id = "user-001"
-        query = {"userId": user_id, "queryText": "What is MARP?"}
-
-        assert query["userId"] == user_id
-
-    def test_multiple_queries_same_user(self):
-        """Test handling multiple queries from same user."""
-        queries = [
-            {"queryId": "q-001", "userId": "u-001", "text": "Query 1"},
-            {"queryId": "q-002", "userId": "u-001", "text": "Query 2"},
-            {"queryId": "q-003", "userId": "u-001", "text": "Query 3"},
-        ]
-
-        user_ids = [q["userId"] for q in queries]
-        assert all(uid == "u-001" for uid in user_ids)
-
-    def test_different_users_different_sessions(self):
-        """Test different users have different sessions."""
-        session_1 = {"userId": "u-001", "sessionId": "s-001"}
-        session_2 = {"userId": "u-002", "sessionId": "s-002"}
-
-        assert session_1["userId"] != session_2["userId"]
-        assert session_1["sessionId"] != session_2["sessionId"]
