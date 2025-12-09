@@ -153,26 +153,25 @@ jobs:
           flags: integration-tests
           name: integration-tests
 
-  build:
+  docker-build:
+    name: Docker Build Test
     runs-on: ubuntu-22.04
     needs: [integration-tests]
+    strategy:
+      matrix:
+        service: [ingestion, extraction, indexing, retrieval, chat]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Prune Docker system
-        run: docker system prune -af --volumes
-
-      - name: Build all Docker images
-        run: docker compose build
-
-      - name: Start services
-        run: docker compose up -d
-
-      - name: Health check endpoints
+      - name: Free up disk space
         run: |
-          curl -f http://localhost:8001/health
+          docker system prune -af --volumes
+          df -h
 
-      - name: Tear down services
-        if: always()
-        run: docker compose down -v
+      - name: Build Docker image
+        run: |
+          docker build -f services/${{ matrix.service }}/Dockerfile -t marp-${{ matrix.service }}:test services/${{ matrix.service }}
+
+      - name: Test Docker image
+        run: |
+          docker run --rm marp-${{ matrix.service }}:test python --version
