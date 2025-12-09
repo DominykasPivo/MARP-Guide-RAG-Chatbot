@@ -31,7 +31,6 @@
           "pageCount": "integer",
           "sourceUrl": "string"
         }
-
       }
     },
     {
@@ -89,24 +88,18 @@
       }
     },
     {
-      "eventType": "AnswerGenerated",
+      "eventType": "RetrievalCompleted",
       "eventId": "string",
       "timestamp": "string",
       "correlationId": "string",
-      "source": "chat-service",
+      "source": "retrieval-service",
       "version": "1.0",
       "payload": {
         "queryId": "string",
-        "answerText": "string",
-        "citations": [
-          {
-            "documentId": "string",
-            "chunkId": "string",
-            "sourcePage": "integer"
-          }
-        ],
-        "confidence": "number",
-        "generatedAt": "string"
+        "query": "string",
+        "resultsCount": "integer",
+        "topScore": "number",
+        "latencyMs": "number"
       }
     }
   ]

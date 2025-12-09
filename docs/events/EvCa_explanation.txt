@@ -1,0 +1,61 @@
+# Event Catalog Explanations
+
+This file provides detailed explanations for each event in the EvCA.json catalog, including what services publish and consume them, their purpose, usage in code, and why they are used.
+
+## DocumentDiscovered Event
+- **Published by:** Ingestion Service
+- **Consumed by:** Extraction Service
+- **Purpose:** Triggers the document processing pipeline when a new MARP PDF is uploaded. Notifies extraction service to begin text extraction.
+- **Usage in Code:**
+  - Published: services/ingestion/app/events.py via publish_event()
+  - Consumed: services/extraction/app/extractor.py via EventConsumer.subscribe()
+- **Why Used:** Enables asynchronous decoupling between ingestion and extraction services in the document pipeline, allowing for scalable processing without blocking the user.
+
+## DocumentExtracted Event
+- **Published by:** Extraction Service
+- **Consumed by:** Indexing Service
+- **Purpose:** Notifies that PDF text extraction is complete and provides the extracted content for chunking and embedding.
+- **Usage in Code:**
+  - Published: services/extraction/app/extractor.py via EventConsumer.publish()
+  - Consumed: services/indexing/app/app.py via EventConsumer
+- **Why Used:** Enables the synchronous document pipeline to continue asynchronously to indexing, allowing for scalable processing of large PDFs without requiring the extraction service to wait for indexing completion.
+
+## ChunksIndexed Event
+- **Published by:** Indexing Service
+- **Consumed by:** Retrieval Service
+- **Purpose:** Notifies that document chunks have been embedded and stored in the vector database (Qdrant).
+- **Usage in Code:**
+  - Published: services/indexing/app/events.py
+  - Consumed: services/retrieval/app/retrieval.py via handle_chunks_indexed() for cache invalidation
+- **Why Used:** Ensures retrieval service can invalidate its cache when new documents are indexed, maintaining up-to-date search results and preventing stale data from being returned.
+
+## QueryReceived Event
+- **Published by:** Chat Service
+- **Consumed by:** Retrieval Service
+- **Purpose:** Notifies that a user has submitted a query and triggers retrieval of relevant document chunks.
+- **Usage in Code:**
+  - Published: services/chat/app/app.py via publish_query_event()
+  - Consumed: services/retrieval/app/retrieval.py via handle_query_received()
+- **Why Used:** Provides asynchronous notification for query processing, though the primary communication between chat and retrieval is via HTTP API calls for reliability and synchronous responses.
+
+## ChunksRetrieved Event
+- **Published by:** Retrieval Service
+- **Consumed by:** None (defined in Chat Service but not actively consumed)
+- **Purpose:** Notifies that relevant chunks have been retrieved for a query, intended for chat service to use in RAG generation.
+- **Usage in Code:**
+  - Published: services/retrieval/app/retrieval.py via publish_event()
+  - Handler defined: services/chat/app/events.py but not used in practice
+- **Why Used:** Future-proofing for fully event-driven chat/retrieval communication. Currently, chat service uses HTTP API responses instead for immediate, reliable chunk delivery.
+
+## RetrievalCompleted Event
+- **Published by:** Retrieval Service
+- **Consumed by:** None (monitoring/logging only)
+- **Purpose:** Provides metrics and completion notification for retrieval operations.
+- **Usage in Code:**
+  - Published: services/retrieval/app/app.py and services/retrieval/app/retrieval.py after search operations
+- **Why Used:** Enables monitoring, logging, and analytics of retrieval performance without blocking the main query flow, useful for observability and debugging.
+
+## Overall Architecture Notes
+- **Document Pipeline (Ingestion → Extraction → Indexing):** Uses events for asynchronous decoupling, allowing services to process documents without blocking each other.
+- **Chat/Retrieval Interaction:** Hybrid approach - events for notifications/logging, HTTP APIs for primary data exchange.
+- **Event vs API Usage:** Events provide loose coupling and scalability, while APIs ensure reliable, synchronous communication for critical data flows.
