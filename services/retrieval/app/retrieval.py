@@ -1,10 +1,8 @@
 import json
 import logging
 import os
-import time
 import uuid
 
-from retrieval_events import EventTypes, publish_event
 from retrieval_rabbitmq import EventConsumer
 from retriever import get_retriever
 
@@ -44,22 +42,29 @@ class RetrievalService:
         return self.retriever
 
     def start(self):
+        """
+        Start listening for ChunksIndexed events to invalidate cache.
+        NOTE: QueryReceived is handled by consumers.py for tracking only.
+        Actual retrieval happens via HTTP in app.py.
+        """
         logger.info("Starting retrieval service...")
         consumer = self._ensure_consumer()
-        try:
-            consumer.subscribe("QueryReceived", self.handle_query_received)
-            logger.info("✅ Subscribed to 'queryreceived'")
-        except Exception as e:
-            logger.error(f"❌ Failed to subscribe 'QueryReceived': {e}")
+
+        # Only subscribe to ChunksIndexed for cache invalidation
         try:
             consumer.subscribe("chunks.indexed", self.handle_chunks_indexed)
             logger.info("✅ Subscribed to 'ChunksIndexed'")
         except Exception as e:
             logger.error(f"❌ Failed to subscribe 'chunksindexed': {e}")
+
         logger.info("Starting RabbitMQ consumer...")
         consumer.start_consuming()
 
     def handle_chunks_indexed(self, ch, method, properties, body):
+        """
+        When chunks are indexed, invalidate the retriever cache so next
+        HTTP query gets fresh data.
+        """
         correlation_id = (
             properties.correlation_id
             if properties and properties.correlation_id
@@ -104,93 +109,6 @@ class RetrievalService:
         except Exception as e:
             logger.error(
                 f"ChunksIndexed handler error: {e}",
-                extra={"correlation_id": correlation_id},
-                exc_info=True,
-            )
-            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-
-    def handle_query_received(self, ch, method, properties, body):
-        correlation_id = (
-            properties.correlation_id
-            if properties and properties.correlation_id
-            else str(uuid.uuid4())
-        )
-        try:
-            event = json.loads(body)
-            if event.get("eventType") != "QueryReceived":
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-                return
-            payload = event.get("payload", {})
-            query_id = payload.get("queryId")
-            query_text = payload.get("queryText")
-            if not query_text:
-                logger.error(
-                    "Missing queryText", extra={"correlation_id": correlation_id}
-                )
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-                return
-            logger.info(
-                "📨 Processing QueryReceived",
-                extra={
-                    "correlation_id": correlation_id,
-                    "query_id": query_id,
-                    "query": query_text,
-                },
-            )
-            start_time = time.time()
-            retriever = self._ensure_retriever()
-            chunks = retriever.search(query_text, top_k=RETRIEVAL_TOP_K)
-            processing_time = (time.time() - start_time) * 1000
-            logger.info(
-                f"⏱️ Retrieved {len(chunks)} chunks in {processing_time:.2f}ms",
-                extra={"correlation_id": correlation_id, "query_id": query_id},
-            )
-            top_score = chunks[0]["relevanceScore"] if chunks else 0.0
-            publish_event(
-                "RetrievalCompleted",
-                {
-                    "queryId": query_id,
-                    "query": query_text,
-                    "resultsCount": len(chunks),
-                    "topScore": float(top_score),
-                    "latencyMs": int(processing_time),
-                },
-                self.rabbitmq_url,
-            )
-            out_payload = {
-                "queryId": query_id,
-                "retrievedChunks": chunks,
-                "retrievalModel": self.embedding_model,
-            }
-            if publish_event(
-                EventTypes.CHUNKS_RETRIEVED.value, out_payload, self.rabbitmq_url
-            ):
-                logger.info(
-                    "✅ Published ChunksRetrieved",
-                    extra={
-                        "correlation_id": correlation_id,
-                        "query_id": query_id,
-                        "chunks_count": len(chunks),
-                        "processing_time_ms": processing_time,
-                    },
-                )
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-            else:
-                logger.error(
-                    "❌ Failed to publish ChunksRetrieved",
-                    extra={"correlation_id": correlation_id},
-                )
-                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
-        except json.JSONDecodeError:
-            logger.error(
-                "Failed to parse QueryReceived JSON",
-                extra={"correlation_id": correlation_id},
-                exc_info=True,
-            )
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-        except Exception as e:
-            logger.error(
-                f"QueryReceived handler error: {e}",
                 extra={"correlation_id": correlation_id},
                 exc_info=True,
             )

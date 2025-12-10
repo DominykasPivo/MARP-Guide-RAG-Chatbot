@@ -28,6 +28,8 @@ class Retriever:
 
         self.encoder = None
         self.client = None
+        # Add cache tracking for invalidate_cache() method
+        self._cache_valid = True
 
         logger.info("Initializing Retriever with:")
         logger.info(f"  - Embedding model: {self.embedding_model_name}")
@@ -36,11 +38,26 @@ class Retriever:
 
         self._initialize()
 
+    def invalidate_cache(self):
+        """
+        Invalidate retriever cache when new chunks are indexed.
+        Called by retrieval.py when ChunksIndexed event is received.
+        Currently just logs - could add actual caching logic later.
+        """
+        logger.info("♻️ Cache invalidated - next query will use fresh data")
+        self._cache_valid = False
+        # If you add caching later, clear it here
+
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Search for relevant chunks using Qdrant.
         Always returns exactly top_k chunks (or as many as available).
         Requests more from Qdrant to account for deduplication.
         """
+        # Reset cache flag on new search
+        if not self._cache_valid:
+            logger.info("🔄 Using fresh data after cache invalidation")
+            self._cache_valid = True
+
         try:
             # Lowercase query for consistent preprocessing
             query_proc = query.lower()

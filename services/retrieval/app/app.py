@@ -5,12 +5,13 @@ import time
 import uuid
 from datetime import datetime, timezone
 
+from consumers import start_consumer_thread
 from fastapi import Body, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
 from retrieval import RetrievalService
-from retrieval_events import publish_event
+from retrieval_events import publish_retrieval_completed_event
 
 # Environment variables
 RETRIEVAL_TOP_K = int(os.getenv("RETRIEVAL_TOP_K", "5"))
@@ -44,6 +45,15 @@ app = FastAPI(title="MARP Retrieval Service", version="1.0.0")
 
 
 service = RetrievalService()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background event consumers on app startup"""
+    logger.info("🚀 Starting Retrieval Service...")
+    # Start consuming QueryReceived events (for tracking only - won't affect HTTP logic)
+    start_consumer_thread()
+    logger.info("✅ Retrieval Service ready")
 
 
 @app.get("/debug/vector-store")
@@ -97,23 +107,27 @@ def search(request: SearchRequest):
             )
         if not isinstance(top_k, int) or top_k < 1 or top_k > 100:
             top_k = 5
+
+        # Track timing for event
         start_time = time.time()
+        correlation_id = str(uuid.uuid4())
+
         retriever = service._ensure_retriever()
         chunks = retriever.search(query, top_k)
+
+        # Calculate metrics
         processing_time = (time.time() - start_time) * 1000
-        correlation_id = str(uuid.uuid4())
         top_score = chunks[0]["relevanceScore"] if chunks else 0.0
-        publish_event(
-            "RetrievalCompleted",
-            {
-                "queryId": correlation_id,
-                "query": query,
-                "resultsCount": len(chunks),
-                "topScore": float(top_score),
-                "latencyMs": int(processing_time),
-            },
-            service.rabbitmq_url,
+
+        # ✅ PUBLISH RetrievalCompleted EVENT
+        publish_retrieval_completed_event(
+            query_id=correlation_id,
+            query=query,
+            results_count=len(chunks),
+            top_score=float(top_score),
+            latency_ms=processing_time,
         )
+
         formatted_results = [
             SearchResult(
                 text=c.get("text", ""),
@@ -142,7 +156,6 @@ async def health():
 
 @app.post("/query")
 def query(data: dict = Body(...)):
-    """Alternative query endpoint."""
     try:
         if not data:
             return JSONResponse(
@@ -151,11 +164,17 @@ def query(data: dict = Body(...)):
         query_text = data.get("query")
         if not query_text:
             return JSONResponse({"error": "Query is required"}, status_code=400)
+
         top_k = data.get("top_k", 5)
         start_time = time.time()
+        correlation_id = str(uuid.uuid4())
+
         retriever = service._ensure_retriever()
         chunks = retriever.search(query_text, top_k)
+
         processing_time = (time.time() - start_time) * 1000
+        top_score = chunks[0].get("relevanceScore", 0.0) if chunks else 0.0
+
         formatted_chunks = [
             {
                 "text": c.get("text", ""),
@@ -166,7 +185,7 @@ def query(data: dict = Body(...)):
             }
             for c in chunks
         ]
-        correlation_id = str(uuid.uuid4())
+
         logger.info(
             "Query completed",
             extra={
@@ -175,9 +194,30 @@ def query(data: dict = Body(...)):
                 "processing_time_ms": processing_time,
             },
         )
-        return JSONResponse(
-            {"query": query_text, "chunks": formatted_chunks}, status_code=200
-        )
+
+        # ✅ Prepare response FIRST
+        response_data = {"query": query_text, "chunks": formatted_chunks}
+
+        # ✅ Publish event in background thread (fire-and-forget)
+        import threading
+
+        def publish_in_background():
+            try:
+                publish_retrieval_completed_event(
+                    query_id=correlation_id,
+                    query=query_text,
+                    results_count=len(formatted_chunks),
+                    top_score=float(top_score),
+                    latency_ms=processing_time,
+                )
+            except Exception as e:
+                logger.warning(f"Event publishing failed (non-critical): {e}")
+
+        threading.Thread(target=publish_in_background, daemon=True).start()
+
+        # ✅ Return response immediately (don't wait for event)
+        return JSONResponse(response_data, status_code=200)
+
     except Exception as e:
         logger.error(f"Query failed: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
