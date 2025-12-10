@@ -150,7 +150,7 @@ services:
     environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - OPENROUTER_API_KEY=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
+      - OPENROUTER_API_KEY=
 
       - LLM_MODEL=openai/gpt-oss-20b:free
       - LLM_MODELS=openai/gpt-oss-20b:free,google/gemma-3n-e4b-it:free,mistralai/mistral-7b-instruct:free
