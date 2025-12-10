@@ -150,7 +150,7 @@ jobs:
         run: pip install pytest pytest-cov==5.0.0 coverage==7.5.1
 
       - name: Run integration tests
-        run: pytest tests/integration/ -v --cov --cov-report=xml:coverage/integration.xml --cov-report=html:coverage/integration.xml
+        run: pytest tests/integration/ -v --cov --cov-report=xml:coverage/integration.xml --cov-report=html:coverage/integration_html
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
