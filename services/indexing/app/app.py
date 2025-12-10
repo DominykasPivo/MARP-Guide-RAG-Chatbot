@@ -13,8 +13,9 @@ QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "chunks")
 
 
 logger = logging.getLogger("indexing")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     stream=sys.stdout,
 )

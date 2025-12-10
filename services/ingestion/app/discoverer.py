@@ -16,6 +16,8 @@ from storage import DocumentStorage
 logger = logging.getLogger("ingestion.discoverer")
 
 EVENT_VERSION = os.getenv("EVENT_VERSION", "1.0")
+DISCOVERY_TIMEOUT = int(os.getenv("DISCOVERY_TIMEOUT", "10"))
+DOWNLOAD_TIMEOUT = int(os.getenv("DOWNLOAD_TIMEOUT", "60"))
 
 
 class MARPDocumentDiscoverer:
@@ -49,7 +51,9 @@ class MARPDocumentDiscoverer:
             correlation_id: Optional correlation ID for request tracing
         """
         try:
-            response = requests.head(url, allow_redirects=True, timeout=10)
+            response = requests.head(
+                url, allow_redirects=True, timeout=DISCOVERY_TIMEOUT
+            )
             response.raise_for_status()
 
             # Extract document title from the URL or headers
@@ -94,7 +98,7 @@ class MARPDocumentDiscoverer:
                 f"Fetching content from {self.BASE_URL}...",
                 extra={"correlation_id": correlation_id},
             )
-            response = requests.get(self.BASE_URL, timeout=30)
+            response = requests.get(self.BASE_URL, timeout=DOWNLOAD_TIMEOUT)
             response.raise_for_status()
 
             logger.info(

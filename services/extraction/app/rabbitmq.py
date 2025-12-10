@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import random
 import time
 import uuid
@@ -14,13 +15,14 @@ from pika.exceptions import AMQPChannelError, AMQPConnectionError
 # Configure logging
 logger = logging.getLogger("extraction.rabbitmq")
 
-# Constants
+# Constants from environment
 EXCHANGE_NAME = "document_events"
-MAX_RETRIES = 5  # Increased for better resilience
-INITIAL_RETRY_DELAY = 1  # Initial delay in seconds
-MAX_RETRY_DELAY = 30  # Maximum delay in seconds
+MAX_RETRIES = int(os.getenv("RABBITMQ_MAX_RETRIES", "5"))
+INITIAL_RETRY_DELAY = int(os.getenv("RABBITMQ_INITIAL_RETRY_DELAY", "1"))
+MAX_RETRY_DELAY = int(os.getenv("RABBITMQ_MAX_RETRY_DELAY", "30"))
 JITTER_RANGE = 0.1  # +/- 10% random jitter
 CONSUMER_RECONNECT_DELAY = 5  # Delay before consumer reconnection attempts
+CONNECTION_TIMEOUT = int(os.getenv("RABBITMQ_CONNECTION_TIMEOUT", "30"))
 
 
 class EventConsumer:
@@ -67,7 +69,7 @@ class EventConsumer:
             parameters = pika.ConnectionParameters(
                 host=self.host,
                 heartbeat=60,
-                blocked_connection_timeout=30,
+                blocked_connection_timeout=CONNECTION_TIMEOUT,
                 connection_attempts=MAX_RETRIES,
                 retry_delay=INITIAL_RETRY_DELAY,
             )

@@ -12,10 +12,13 @@ from qdrant_client import QdrantClient
 from retrieval import RetrievalService
 from retrieval_events import publish_event
 
+# Environment variables
+RETRIEVAL_TOP_K = int(os.getenv("RETRIEVAL_TOP_K", "5"))
+
 
 class SearchRequest(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: int = RETRIEVAL_TOP_K
 
 
 class SearchResult(BaseModel):
@@ -28,8 +31,9 @@ class SearchResult(BaseModel):
 
 logger = logging.getLogger("retrieval")
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(
-    level=logging.INFO,  # or DEBUG for more detail
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     stream=sys.stdout,
 )

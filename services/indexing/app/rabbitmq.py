@@ -68,6 +68,7 @@ class EventConsumer(Thread):
 
             message = json.loads(body)
             logger.info("✅ Successfully parsed JSON message")
+            logger.info(f"📨 Message structure: {json.dumps(message, indent=2)[:500]}")
 
             # Process the message
             self.callback(message)
@@ -81,6 +82,6 @@ class EventConsumer(Thread):
             # Reject the message without requeue
             ch.basic_reject(delivery_tag=method.delivery_tag, requeue=False)
         except Exception as e:
-            logger.error(f"❌ Error processing message: {e}")
+            logger.error(f"❌ Error processing message: {e}", exc_info=True)
             # Reject the message and requeue for retry
             ch.basic_reject(delivery_tag=method.delivery_tag, requeue=True)

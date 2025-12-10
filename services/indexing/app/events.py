@@ -18,40 +18,44 @@ logger = logging.getLogger("indexing.events")
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
 def process_extracted_event(message):
-    # logger.info(f"📨 Received raw message: {json.dumps(message, indent=2)}")
+    try:
+        logger.info(f"📨 Processing message (truncated): {str(message)[:200]}")
 
-    # Check if this is a valid document.extracted event
-    data = message.get("data", {})
-    event_type = data.get("eventType")
-    if event_type != "DocumentExtracted":
-        logger.warning(f"⚠️  Ignoring non-document.extracted event: {event_type}")
-        return
+        # Check if this is a valid document.extracted event
+        data = message.get("data", {})
+        event_type = data.get("eventType")
+        if event_type != "DocumentExtracted":
+            logger.warning(f"⚠️  Ignoring non-document.extracted event: {event_type}")
+            return
 
-    # Extract fields from the DocumentExtracted event
-    payload = data.get("payload", {})
-    document_id = payload.get("documentId")
-    text_content = payload.get("textContent", "")
-    payload.get("extractedAt")
+        # Extract fields from the DocumentExtracted event
+        payload = data.get("payload", {})
+        document_id = payload.get("documentId")
+        text_content = payload.get("textContent", "")
+        payload.get("extractedAt")
 
-    # Log the payload structure for debugging (removed for cleaner logs)
-    # logger.info(f"🔍 Payload structure: {list(payload.keys())}")
-    # logger.info(f"📄 Document ID: {document_id}, Text length: {len(text_content)}")
+        # Log the payload structure for debugging (removed for cleaner logs)
+        # logger.info(f"🔍 Payload structure: {list(payload.keys())}")
+        # logger.info(f"📄 Document ID: {document_id}, Text length: {len(text_content)}")
 
-    if not document_id:
-        logger.error("❌ No documentId found in payload")
-        return
+        if not document_id:
+            logger.error("❌ No documentId found in payload")
+            return
 
-    if not text_content:
-        logger.error(
-            f"❌ Document {document_id} has no text content to process. Full payload: "
-            f"{json.dumps(payload, indent=2)}"
-        )
-        return
+        if not text_content:
+            logger.error(
+                f"❌ Document {document_id} has no text content "
+                f"to process. Full payload: {json.dumps(payload, indent=2)}"
+            )
+            return
 
-    # Get metadata
-    metadata = payload.get("metadata", {})
-    file_type = metadata.get("fileType", payload.get("fileType", "unknown"))
-    correlation_id = data.get("correlationId")
+        # Get metadata
+        metadata = payload.get("metadata", {})
+        file_type = metadata.get("fileType", payload.get("fileType", "unknown"))
+        correlation_id = data.get("correlationId")
+    except Exception as e:
+        logger.error(f"❌ Error in initial message parsing: {e}", exc_info=True)
+        raise
 
     # logger.info(f"✅ Processing document {document_id} with
     #             {len(text_content)} characters",
@@ -65,35 +69,43 @@ def process_extracted_event(message):
 
     page_texts = payload.get("page_texts")
     all_chunks = []
-    if page_texts and isinstance(page_texts, list):
-        for page_num, page_text in enumerate(page_texts, start=1):
+    try:
+        if page_texts and isinstance(page_texts, list):
+            for page_num, page_text in enumerate(page_texts, start=1):
+                chunk_metadata = {
+                    "document_id": document_id,
+                    "file_type": file_type,
+                    "correlation_id": correlation_id,
+                    **metadata,
+                    "page": page_num,
+                }
+                url = metadata.get("url") or metadata.get("sourceUrl")
+                if url is not None:
+                    chunk_metadata["url"] = url
+                chunks = chunk_document(page_text, chunk_metadata)
+                all_chunks.extend(chunks)
+            # logger.info(f"📊 Generated {len(all_chunks)} chunks from
+            #             document {document_id} (per-page)",
+            #             extra={"correlation_id": correlation_id})
+        else:
+            # Fallback: chunk the whole document as before
             chunk_metadata = {
                 "document_id": document_id,
                 "file_type": file_type,
                 "correlation_id": correlation_id,
                 **metadata,
-                "page": page_num,
             }
             url = metadata.get("url") or metadata.get("sourceUrl")
             if url is not None:
                 chunk_metadata["url"] = url
-            chunks = chunk_document(page_text, chunk_metadata)
-            all_chunks.extend(chunks)
-        # logger.info(f"📊 Generated {len(all_chunks)} chunks from
-        #             document {document_id} (per-page)",
-        #             extra={"correlation_id": correlation_id})
-    else:
-        # Fallback: chunk the whole document as before
-        chunk_metadata = {
-            "document_id": document_id,
-            "file_type": file_type,
-            "correlation_id": correlation_id,
-            **metadata,
-        }
-        url = metadata.get("url") or metadata.get("sourceUrl")
-        if url is not None:
-            chunk_metadata["url"] = url
-        all_chunks = chunk_document(text_content, chunk_metadata)
+            all_chunks = chunk_document(text_content, chunk_metadata)
+    except TypeError as e:
+        logger.error(f"❌ TypeError during chunking: {e}", exc_info=True)
+        logger.error(
+            f"page_texts type: {type(page_texts)}, "
+            f"text_content type: {type(text_content)}"
+        )
+        raise
         # logger.info(f"📊 Generated {len(all_chunks)} chunks from
         #             document {document_id} (whole doc)",
         #             extra={"correlation_id": correlation_id})

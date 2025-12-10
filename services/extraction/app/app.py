@@ -12,8 +12,9 @@ from fastapi.responses import JSONResponse
 # Set up logging with service name
 logger = logging.getLogger("extraction")
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(
-    level=logging.INFO,  # or DEBUG for more detail
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     stream=sys.stdout,
 )

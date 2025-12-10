@@ -1,9 +1,15 @@
+import os
 import re
+from typing import Optional
 
 import tiktoken
 
+# Environment variables
+CHUNK_MAX_TOKENS = int(os.getenv("CHUNK_MAX_TOKENS", "400"))
+TIKTOKEN_ENCODING = os.getenv("TIKTOKEN_ENCODING", "cl100k_base")
 
-def chunk_document(text: str, metadata: dict, max_tokens: int = 400) -> list:
+
+def chunk_document(text: str, metadata: dict, max_tokens: Optional[int] = None) -> list:
     """
     Split document into semantic chunks (by paragraph), estimating token count.
     Each chunk is a dict with 'text' and 'metadata'.
@@ -14,6 +20,10 @@ def chunk_document(text: str, metadata: dict, max_tokens: int = 400) -> list:
     Returns:
         List of dicts: [{"text": ..., "metadata": {...}}, ...]
     """
+
+    # Use default if not provided
+    if max_tokens is None:
+        max_tokens = CHUNK_MAX_TOKENS
 
     # Chunking strategy (Semantic): Paragraph level > Sentence level > Token
     # level

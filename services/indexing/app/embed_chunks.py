@@ -1,11 +1,14 @@
 import logging
+import os
 
 from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger("indexing.embed_chunks")
 
-# Load the model once at module level
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# Load the model once at module level from environment
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+model = SentenceTransformer(EMBEDDING_MODEL)
+logger.info(f"Loaded embedding model: {EMBEDDING_MODEL}")
 
 
 def embed_chunks(chunks, correlation_id=None):

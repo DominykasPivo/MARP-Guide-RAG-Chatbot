@@ -14,14 +14,14 @@ Implement secure user registration, login, token management, and a robust author
 
 This implementation will adhere to the existing architecture:
 
-* All backend logic will be built using **Python/Flask**.  
-* Communication between the API Gateway and the AuthService will utilize **Synchronous REST**.  
+* All backend logic will be built using **Python/Flask**.
+* Communication between the API Gateway and the AuthService will utilize **Synchronous REST**.
 * **PostgreSQL** will remain the authoritative source for user metadata.
 
 ### **1.3 Design Overview**
 
-* **AuthService:** Handles user creation, password hashing, JWT generation, and token validation.  
-* **API Gateway:** Acts as the authorization barrier, validating the JWT for all protected routes and forwarding the extracted user\_id to downstream services.  
+* **AuthService:** Handles user creation, password hashing, JWT generation, and token validation.
+* **API Gateway:** Acts as the authorization barrier, validating the JWT for all protected routes and forwarding the extracted user\_id to downstream services.
 * **Data Partitioning:** All data queries (chat history, document ingestion, vector retrieval) must be scoped by the authenticated user\_id.
 
 ### **1.4 Implementation Plan**
@@ -47,14 +47,14 @@ Fully activate the **Orchestrator Service** to execute calls to multiple LLM pro
 
 This implementation will adhere to the existing architecture:
 
-* The Orchestrator will be a **Python/Flask** microservice.  
-* Communication will use **Synchronous REST** for calls from the ChatService and back.  
+* The Orchestrator will be a **Python/Flask** microservice.
+* Communication will use **Synchronous REST** for calls from the ChatService and back.
 * **The Orchestrator will execute blocking API calls sequentially** to external LLMs, maintaining the synchronous nature of the overall RAG flow.
 
 ### **2.3 Design Overview**
 
-* **Orchestrator Service:** Dedicated responsibility for querying external LLMs.  
-* **Execution Model:** The Orchestrator will make separate, **blocking API calls** to each external LLM provider one after the other, ensuring that a consolidated, structured response containing all answers is collected before returning to the ChatService.  
+* **Orchestrator Service:** Dedicated responsibility for querying external LLMs.
+* **Execution Model:** The Orchestrator will make separate, **blocking API calls** to each external LLM provider one after the other, ensuring that a consolidated, structured response containing all answers is collected before returning to the ChatService.
 * **Response Structuring:** Standardize the output from disparate LLM APIs into a single, predictable JSON format.
 
 ### **2.4 Implementation Plan**
@@ -68,4 +68,3 @@ This implementation will adhere to the existing architecture:
 | **5\. ChatService Integration** | ChatService | Update the ChatService to expect and handle the new **array of responses** from the Orchestrator, rather than a single text string. |
 | **6\. Frontend Display** | React Frontend | Update the UI to parse the array of responses and display them in a **side-by-side comparative layout**, along with any associated attribution metadata. |
 | **7\. Tier 1 Dependency** | ALL | **Critical:** Ensure the RAG context passed from the ChatService to the Orchestrator correctly includes document chunks retrieved via the now **authenticated and scoped RetrievalService** (Tier 1 prerequisite). |
-
