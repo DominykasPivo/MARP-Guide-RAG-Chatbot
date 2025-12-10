@@ -1,9 +1,33 @@
 ![CI](https://github.com/DominykasPivo/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/DominykasPivo/MARP-Guide-RAG-Chatbot/branch/main/graph/badge.svg)](https://codecov.io/gh/DominykasPivo/MARP-Guide-RAG-Chatbot)
 
 # MARP-Guide-RAG-Chatbot
 LZSCC.311  - Year 3 Group Project
 
 RAG Chatbot with Microservices and Event-Driven Architecture
+
+## 🚀 Quick Start
+
+1. **Copy environment configuration:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Add your OpenRouter API key to `.env`:**
+   ```env
+   OPENROUTER_API_KEY=your-api-key-here
+   ```
+
+3. **Start the services:**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the chat interface:**
+   - Chat UI: http://localhost:8005
+   - Ingestion API: http://localhost:8001
+
+📖 **For detailed configuration options, see:** [docs/QUICK_CONFIG.md](docs/QUICK_CONFIG.md)
 
 # **Goal of Project | Chat AI Application**
 
@@ -13,22 +37,27 @@ Building a chat application that answers questions about Lancaster University’
 
 ## **1\. Key Features**
 
-* **User Authentication:** Secure login and registration so every user has their own private chat history.  
-* **Document Ingestion Pipeline:** An event-driven workflow for reliably processing new documents (MARP PDFs) and updating the knowledge base.  
-* **Vector-Powered Memory (RAG):** The app uses a special **Qdrant** vector database to "remember" past conversations and provide **Retrieval-Augmented Generation (RAG)** answers.  
-* **Multi-Model Comparison:** Get answers from different LLMs (like GPT-4, Claude 3, etc.) for the *same question*, shown side-by-side so you can compare them.
+* **Document Ingestion Pipeline:** Event-driven workflow for processing MARP PDF documents and updating the knowledge base
+* **Vector-Powered RAG:** Uses Qdrant vector database for semantic search and retrieval-augmented generation
+* **Multi-LLM Support:** Compare answers from multiple free LLM models (Google Gemma, Meta Llama, Microsoft Phi) via OpenRouter
+* **Configurable Architecture:** Comprehensive environment-based configuration for all services
+* **Microservices Design:** Independent services communicating via RabbitMQ events
+* **Semantic Chunking:** Intelligent document splitting using tiktoken for optimal context size
+* **Production Ready:** Comprehensive CI/CD pipeline with testing, linting, and Docker builds
 
 ## **2\. Technology Stack**
 
-This project is built using a modern, professional stack:
-
 | Component | Technology | Purpose |
 | :---- | :---- | :---- |
-| **Frontend (UI)** | **FastAPI** | Serves the HTML for the UI. Used to be (React) |
-| **Backend (APIs)** | **Python (FastAPI)** | High-performance, modern framework for all microservices. Used to be (Flask) |
-| **Event Broker** | **RabbitMQ** | Manages asynchronous background tasks (Document Pipeline). |
-| **Vector Database** | **Qdrant** | High-performance, scalable vector store for RAG. replaced ChromaDB |
-| **User Database** | **PostgreSQL** | Standard SQL database for securely storing user accounts and metadata. |
+| **Backend** | **Python (FastAPI)** | High-performance async API framework for all microservices (Replaced Flask) |
+| **Event Broker** | **RabbitMQ** | Asynchronous message queue for event-driven architecture |
+| **Vector Database** | **Qdrant** | Efficient vector similarity search for semantic retrieval |
+| **Embeddings** | **Sentence Transformers** | Pre-trained models for converting text to vector embeddings |
+| **LLM Integration** | **OpenRouter** | Access to multiple free and paid language models |
+| **Tokenization** | **Tiktoken** | OpenAI's tokenizer for accurate token counting and chunking |
+| **Document Processing** | **PyPDF** | PDF text extraction and metadata parsing |
+| **Orchestration** | **Docker Compose** | Container orchestration for multi-service deployment |
+| **CI/CD** | **GitHub Actions** | Automated testing, linting, security scanning, and Docker builds |
 
 
 ## **3\. Full Architecture Diagram (Provided by [Draw.io](http://Draw.io))**
@@ -39,147 +68,266 @@ This project is built using a modern, professional stack:
 
 [https://drive.google.com/file/d/1GVf\_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing](https://drive.google.com/file/d/1GVf_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing)
 
-## **4\. How It Works: Key Scenario**
+## **4\. How It Works: Key Scenarios**
 
-#### **Document Ingestion Pipeline (Synchronous)**
+### **Document Ingestion Pipeline (Event-Driven)**
 
-* ### This workflow is a single, blocking chain of REST calls responsible for reliably processing a new MARP PDF and integrating its content into the knowledge base. The user must wait for the entire process—including extraction, chunking, vector embedding, and database writes—to complete before receiving a final confirmation.
+1. **Discovery:** Ingestion service discovers new PDF documents
+2. **Extraction:** Extraction service extracts text content from PDFs
+3. **Chunking:** Indexing service splits text into semantic chunks using tiktoken
+4. **Embedding:** Chunks are converted to vector embeddings using Sentence Transformers
+5. **Storage:** Embeddings stored in Qdrant vector database for fast similarity search
 
-* ### Flow Summary: The Ingestion Service initiates a blocking call to the Extraction Service. The Extraction Service performs text extraction and then initiates a blocking call to the Indexing Service. The Indexing Service performs the computationally heavy work (embedding generation and vector writes to Qdrant) before the successful response cascades back up through the chain to the user.
+### **RAG Query Flow**
+
+1. **User Query:** User submits a question via chat interface
+2. **Retrieval:** Query is embedded and similar chunks retrieved from Qdrant
+3. **Context Building:** Retrieved chunks form the context for the LLM
+4. **Generation:** Multiple LLMs generate answers using the context
+5. **Response:** Answers presented with citations (title, page, URL)
 
 
 
-## **5\. Deployment & Ports**
+## **5\. Testing & Quality Assurance**
 
-The **API Gateway** remains the single public entry point; all other services are internal.
+[![CI Status](https://github.com/DomasB123/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/DomasB123/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/DomasB123/MARP-Guide-RAG-Chatbot/branch/main/graph/badge.svg)](https://codecov.io/gh/DomasB123/MARP-Guide-RAG-Chatbot)
 
-| Service | Host Port | Notes |
+### **Test Suite**
+
+The project includes comprehensive test coverage with **100+ test cases**:
+
+- **Unit Tests** (`tests/unit/`): Test individual components in isolation
+  - **Chat Service:** Event handling, citation formatting, context building
+  - **Retrieval Service:** Vector search, RabbitMQ integration, error handling
+  - **Ingestion Service:** Document discovery, storage operations, thread safety
+  - **Indexing Service:** Semantic chunking, event processing
+  - **Event System:** Event creation, correlation IDs, metadata preservation
+  
+- **Integration Tests** (`tests/integration/`): Test service interactions
+  - End-to-end ingestion flow with document processing
+  - Indexing pipeline with vector database operations
+  - Search API with real queries
+  - Event-driven communication patterns
+  - Concurrent access and error scenarios
+
+**Note:** The Extraction Service currently has limited test coverage and is a candidate for future test expansion.
+
+### **Running Tests**
+
+**Run all tests:**
+```bash
+pytest
+```
+
+**Run with coverage:**
+```bash
+pytest --cov=services --cov-report=html --cov-report=term
+```
+
+**Run specific test categories:**
+```bash
+# Unit tests only
+pytest tests/unit/
+
+# Integration tests only
+pytest tests/integration/
+
+# Specific service tests
+pytest tests/unit/test_chat_service.py
+```
+
+**For detailed testing documentation, see [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md)**
+
+### **CI/CD Pipeline**
+
+The project uses GitHub Actions for continuous integration:
+
+**Workflow Jobs:**
+1. **Python Tests** - Runs full test suite across Python 3.10, 3.11, 3.12 on ubuntu-22.04
+2. **Docker Build** - Matrix build strategy for all 5 microservices
+3. **Code Coverage** - Uploads coverage reports to Codecov
+
+**Configuration:** See `.github/workflows/ci.yml` and `docs/CI_CD_CONFIG.md` for details.
+
+---
+
+## **6\. Configuration**
+
+### **Environment Variables**
+
+The application uses a `.env` file for configuration. Copy the example file to get started:
+
+```bash
+# Linux/Mac
+cp .env.example .env
+
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+Or use the automated setup scripts:
+```bash
+# Linux/Mac
+./scripts/setup.sh
+
+# Windows PowerShell
+.\scripts\setup.ps1
+```
+
+### **Key Configuration Areas**
+
+- **RabbitMQ:** Connection settings, retry configuration
+- **Qdrant:** Vector database connection and collection settings
+- **Embeddings:** Model selection, batch size
+- **Chunking:** Token limits, encoding selection
+- **LLM:** Model selection, API keys, generation parameters
+- **Services:** Port mappings, timeouts, logging levels
+
+### **Documentation**
+
+- **Quick Start:** See `docs/QUICK_CONFIG.md` for common configurations
+- **Complete Reference:** See `docs/ENVIRONMENT_CONFIG.md` for all 60+ variables
+- **Package Versions:** See `docs/PACKAGE_VERSIONS.md` for dependency details
+- **CI/CD Setup:** See `docs/CI_CD_CONFIG.md` for pipeline configuration
+
+---
+
+## **7\. Deployment & Ports**
+
+All services communicate via RabbitMQ events and REST APIs. The Chat service serves the frontend on port 8004.
+
+| Service | Host Port | Access |
 | :---- | :---- | :---- |
-| APIGateway | 8000 | **Public:** This is the entry point for users/UI access. |
-| Auth | 8006 | **Internal:** Handles user authentication and authorization (Login/Registration). |
-| Ingestion | 8001 | **Internal:** Listens for external documents. |
-| Extraction | 8002 | **Internal:** Consumes events from RabbitMQ. |
-| Indexing | 8003 | **Internal:** Consumes events to generate embeddings and write to Qdrant. |
-| Chat | 8004 | **Internal:** Manages conversation state and orchestrates RAG flow. |
-| Retrieval | 8005 | **Internal:** Queries the VectorDB(Qdrant) for relevant document chunks.. |
+| Chat (Frontend) | 8004 | **Public:** Web UI at http://localhost:8004 |
+| Ingestion | 8001 | **Internal:** Document upload endpoint |
+| Extraction | 8002 | **Internal:** Event consumer |
+| Indexing | 8003 | **Internal:** Event consumer |
+| Retrieval | 8005 | **Internal:** Vector search API |
+| RabbitMQ | 5672 | **Internal:** Message broker |
+| RabbitMQ Management | 15672 | **Public:** Admin UI at http://localhost:15672 |
+| Qdrant | 6333 | **Internal:** Vector database (Replaced ChromaDB) |
 
+---
 
+## **8\. Setup and Run Instructions**
 
+### **Prerequisites**
 
-# **Chat AI Application Setup and Run Instructions**
+1. **Docker & Docker Compose:** Install Docker Desktop or Docker Engine with Compose plugin
+2. **Git:** Clone this repository
+3. **API Keys:** OpenRouter API key for LLM access (or configure alternative LLM provider)
 
-This guide provides the necessary steps to set up and run the entire microservices architecture using Docker Compose.
+### **Quick Start**
 
-**Prerequisites:**
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/DomasB123/MARP-Guide-RAG-Chatbot.git
+   cd MARP-Guide-RAG-Chatbot
+   ```
 
-1. **Docker:** Ensure Docker and Docker Compose (or Docker Desktop) are installed and running on your system.  
-2. **Codebase:** The source code for each service must be cloned and organized into directories matching the service names (e.g., apigateway/, authservice/, ingestionservice/, etc.).
+2. **Set up environment variables:**
+   ```bash
+   # Linux/Mac
+   ./scripts/setup.sh
+   
+   # Windows PowerShell
+   .\scripts\setup.ps1
+   ```
+   
+   Or manually:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration (API keys, etc.)
+   ```
 
-## **1\. Project Structure Verification**
+3. **Start all services:**
+   ```bash
+   docker-compose up --build
+   ```
 
-Before proceeding, verify that your project directory structure looks like this:
+4. **Access the application:**
+   - Frontend: http://localhost:8004
+   - RabbitMQ Management: http://localhost:15672 (guest/guest)
 
-/chatbot  
-|-- docker-compose.yml   \<-- The file generated above  
-|-- README.md  
-|-- /apigateway  
-|   |-- Dockerfile  
-|-- /auth  
-|   |-- Dockerfile  
-|-- /ingestion  
-|   |-- Dockerfile  
-|-- /extraction  
-|   |-- Dockerfile  
-|-- /indexing  
-|   |-- Dockerfile  
-|-- /chat  
-|   |-- Dockerfile  
-|-- /retrieval  
-|   |-- Dockerfile  
-|-- .env (Optional, for custom configuration)
+### **Development Setup**
 
-## 
+For local development without Docker:
 
-## **2\. Launching the System**
+1. **Install Python 3.10-3.12**
+2. **Install dependencies:**
+   ```bash
+   pip install -r services/chat/requirements.txt
+   pip install -r services/ingestion/requirements.txt
+   # ... repeat for other services
+   ```
+3. **Start infrastructure:**
+   ```bash
+   docker-compose up rabbitmq qdrant
+   ```
+4. **Run services individually:**
+   ```bash
+   cd services/chat
+   python -m app.app
+   ```
 
-Execute the following command in the root directory where your docker-compose.yml file is located:
+---
 
-#Step 1 Building
+## **9\. Architecture**
 
-docker-compose build ingestion extraction indexing --no-cache
+### **Event-Driven Microservices**
 
-#Step 2 Running
+The system uses an event-driven architecture with RabbitMQ for asynchronous communication:
 
-docker-compose up ingestion extraction indexing -d
+1. **Ingestion Service:** Discovers and uploads PDF documents
+2. **Extraction Service:** Extracts text content from PDFs
+3. **Indexing Service:** Chunks text, generates embeddings, stores in Qdrant
+4. **Retrieval Service:** Performs semantic search in vector database
+5. **Chat Service:** Orchestrates RAG flow and serves frontend
 
+### **Key Technologies**
 
+- **FastAPI 0.110.2:** High-performance async web framework
+- **RabbitMQ:** Message broker for event-driven communication
+- **Qdrant 1.8.2:** Vector database for similarity search
+- **Sentence Transformers ≥3.1.0:** Text embedding generation
+- **Tiktoken 0.12.0:** Token counting and text chunking
+- **OpenRouter API:** Multi-LLM access for answer generation
 
+### **Documentation**
 
+For detailed architecture documentation, see:
+- `docs/detailed_architecture.md` - Complete system design
+- `docs/services/` - Individual service documentation
+- `docs/events/` - Event flow diagrams and specifications
 
+---
 
-| Command | Purpose |
-| :---- | :---- |
-| up | Starts all services defined in the configuration. |
-| \--build | Forces Docker to rebuild the images for the application services (e.g., apigateway, authservice) based on their Dockerfiles. **Crucial for initial setup or after code changes.** |
-| \-d | Runs the containers in **detached** mode (in the background). |
+## **10\. Contributing**
 
-## **4\. System Verification (Health Check)**
+Contributions are welcome! Please:
 
-After running the up command, the system should be fully operational. You can verify the status and access the infrastructure components:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with tests
+4. Run the test suite (`pytest`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
-| Component | Status Check Command | Access URL (Local) | Notes |
-| :---- | :---- | :---- | :---- |
-| **All Containers** | docker-compose ps | N/A | All containers should be in the Up state. |
-| **API Gateway** | Check logs: docker-compose logs api\_gateway | http://localhost:8000 | This is the entry point for the React Frontend. |
-| **RabbitMQ UI** | N/A | http://localhost:15672 | Log in with the credentials defined in .env (default: guest/guest). |
+The CI pipeline will automatically run tests and build checks on your PR.
 
-## **5\. Stopping and Cleanup**
+---
 
-To stop all running services and keep the data volumes (for faster restarts):
+## **11\. License**
 
-docker-compose stop
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-To stop all services and remove the containers, networks, and persistent data volumes:
+---
 
-docker-compose down \-v
+## **12\. Acknowledgments**
 
-**Note:** The \-v flag removes the postgres\_data and chromadb\_data volumes. **All database and vector data will be permanently deleted.** Only use this command if you want a clean restart.
-
-
-
-
-## **Document Ingestion Technology Stack Overview**
-
-This stack outlines the dependencies for the two critical microservices responsible for transforming raw PDFs into searchable vector embeddings.
-
-| Service | Technology (Package) | Version | Role in Service |
-| :---- | :---- | :---- | :---- |
-| **Extraction Service** | **Flask** | 3.0.0 **Latest**  | Microservice Framework: Provides the REST API endpoint and handles the HTTP request/response for synchronous processing. |
-|  | **pika** | 1.3.2 **Latest**  | RabbitMQ Client: Used for future-proofing; handles connection to the Event Broker (RabbitMQ). |
-|  | **PyPDF2** | 3.0.1 **Latest**  | PDF Utility: Used for basic PDF manipulation and extracting metadata like page count. |
-|  | **pdfplumber** | 0.10.3 **Latest**  | PDF Text Extractor: **Primary tool** for robustly extracting text content from PDF files. |
-|  | **python-magic** | 0.4.27 **Latest**  | File Type Identification: Used to detect the file type (e.g., confirm it is indeed a PDF) for validation. |
-| **Indexing Service** | **Flask** | 3.1.2 **Latest**  | Microservice Framework: Provides the REST API endpoint to receive extracted text and initiates the embedding process. |
-|  | **pika** | 1.3.2 **Latest**  | RabbitMQ Client: Used for future-proofing; handles connection to the Event Broker (RabbitMQ). |
-|  | **chromadb** | 0.4.24 **Latest**  | Vector Database Client: **Core component** for connecting to ChromaDB, performing vector writes, and managing collections. |
-|  | **tiktoken** | 0.5.2  **Latest**  | Tokenizer: Used to accurately count tokens and chunk text documents into segments that fit within the context window limits of the embedding models. |
-|  | **sentence-transformers** | 5.1.1 **Latest**  | Embedding Generation: Core library used to load and run pre-trained language models to convert the chunked text segments into dense vector embeddings. This is the critical step for transforming text into a searchable numerical format that the Vector Database (ChromaDB) can store and use for similarity search. |
-|  | **pydantic-settings** | 2.11.0 **Latest**  | Configuration Management: Handles the loading and validation of settings (e.g., environment variables, secrets) for the service configuration. |
-|  | **tenacity** | 8.2.3 **Latest**  | Retry Pattern: Used to implement robust retries for potentially transient network or service errors when making requests to other microservices (like the Extraction Service). |
-| **Ingestion Service** | **Flask** | 3.1.2 **Latest** | Microservice Framework: Provides the REST API endpoint to receive the raw document file upload and handles the initial HTTP request/response. |
-|  | **Werkzeug** | 3.1.0  | WSGI Utility: Provides the underlying toolkit for handling WSGI requests, which Flask is built upon, including request, response, and URL routing objects |
-|  | **requests** | 2.31.0 **Latest** | HTTP Client: Used to make internal API calls (e.g., to the Extraction Service) after receiving and validating the uploaded file. |
-|  | **python-multipart** | 0.0.6 **Latest** | MIME Parser: Used for parsing multipart/form-data encoded requests, which is the standard way to handle file uploads via a REST API endpoint. |
-|  | **pika** | 1.3.2 **Latest** | RabbitMQ Client: Used for future-proofing; handles connection to the Event Broker (RabbitMQ) for asynchronous processing or queuing of ingestion tasks. |
-|  | **beautifulsoup4** | 4.13.0 **Latest** | HTML/XML Parser: Typically used for web scraping or processing structured data like HTML/XML that may be part of the ingestion flow (though less common for raw PDF ingestion, it's a general-purpose parsing utility). |
-|  | **lxml** | 4.9.3  | XML/HTML Processor: A high-performance parser often used in conjunction with beautifulsoup4 or for handling XML/HTML data sources to be ingested. |
-|  | **urllib3** | 1.21.1 | HTTP Client Library: Provides low-level HTTP client functionality; often used as a dependency by packages like requests to manage connection pooling and retries. |
-
-
-
-
-
-
-
-
-
+- **MARP Guide:** Source material for the RAG knowledge base
+- **OpenRouter:** Multi-LLM API access
+- **Qdrant:** High-performance vector database
+- **Sentence Transformers:** State-of-the-art embedding models |
