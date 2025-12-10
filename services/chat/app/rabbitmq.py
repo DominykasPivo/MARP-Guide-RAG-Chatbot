@@ -1,43 +1,17 @@
+import json
 import logging
-import os
-import random
-import time
+import threading
+from typing import Any, Callable, Dict, Optional
 
 import pika
-from pika.exceptions import AMQPConnectionError
+from pika.adapters.blocking_connection import BlockingChannel
+from pika.spec import Basic, BasicProperties
 
 logger = logging.getLogger("chat.rabbitmq")
 
-# Constants
-EXCHANGE_NAME = "document_events"
-MAX_RETRIES = 5
-INITIAL_RETRY_DELAY = 1
-MAX_RETRY_DELAY = 60
-BACKOFF_MULTIPLIER = 2
-JITTER_RANGE = 0.1
 
-
-class EventConsumer:
-    def __init__(self, rabbitmq_host=None):
-        """Initialize EventConsumer.
-
-        Args:
-            rabbitmq_host: RabbitMQ hostname (defaults to env var)
-        """
-        self.host = rabbitmq_host or os.getenv("RABBITMQ_HOST", "localhost")
-        self.connection = None
-        self.channel = None
-        self.subscriptions = {}  # Track subscriptions: {event_type: callback}
-        logger.info(f"EventConsumer initialized for host: {self.host}")
-
-    def _calculate_retry_delay(self, attempt: int) -> float:
-        """Calculate exponential backoff delay with jitter."""
-        delay: float = min(
-            INITIAL_RETRY_DELAY * (BACKOFF_MULTIPLIER**attempt), MAX_RETRY_DELAY
-        )
-        jitter = delay * JITTER_RANGE
-        delay += random.uniform(-jitter, jitter)  # nosec B311
-        return max(0, delay)  # type: ignore[return-value]
+class RabbitMQClient:
+    """RabbitMQ client for publishing and subscribing to messages."""
 
     def __init__(self, host: str = "localhost", port: int = 5672):
         self.host = host
@@ -51,110 +25,103 @@ class EventConsumer:
     def _connect(self):
         """Establish connection to RabbitMQ."""
         try:
-            if self.connection and not self.connection.is_closed:
-                return True
-
             parameters = pika.ConnectionParameters(
                 host=self.host,
-                heartbeat=60,
-                blocked_connection_timeout=30,
-                connection_attempts=MAX_RETRIES,
-                retry_delay=INITIAL_RETRY_DELAY,
+                port=self.port,
+                heartbeat=600,
+                blocked_connection_timeout=300,
             )
             self.connection = pika.BlockingConnection(parameters)
             self.channel = self.connection.channel()
-
-            # Declare exchange according to event catalogue
-            self.channel.exchange_declare(
-                exchange=EXCHANGE_NAME, exchange_type="topic", durable=True
-            )
-
-            logger.info("Successfully connected to RabbitMQ")
-            return True
-
-        except AMQPConnectionError as e:
+            logger.info(f"Connected to RabbitMQ at {self.host}:{self.port}")
+        except Exception as e:
             logger.error(f"Failed to connect to RabbitMQ: {e}")
-            return False
+            raise
+
+    def publish(self, routing_key: str, message: Dict[str, Any], exchange: str = ""):
+        """Publish a message to a routing key."""
+        if not self.channel:
+            raise RuntimeError("Not connected to RabbitMQ")
+
+        try:
+            self.channel.basic_publish(
+                exchange=exchange,
+                routing_key=routing_key,
+                body=json.dumps(message),
+                properties=pika.BasicProperties(
+                    delivery_mode=2,  # make message persistent
+                ),
+            )
+            logger.info(f"Published message to {routing_key}")
+        except Exception as e:
+            logger.error(f"Failed to publish message: {e}")
+            raise
+
+    def subscribe(
+        self,
+        routing_key: str,
+        callback: Callable[[Dict[str, Any]], None],
+        exchange: str = "",
+        exchange_type: str = "topic",
+    ):
+        """Subscribe to messages with a routing key."""
+        if not self.channel:
+            raise RuntimeError("Not connected to RabbitMQ")
+
+        try:
+            self.channel.exchange_declare(
+                exchange=exchange, exchange_type=exchange_type, durable=True
+            )
+            result = self.channel.queue_declare("", exclusive=True)
+            queue_name = result.method.queue
+            self.channel.queue_bind(
+                exchange=exchange, queue=queue_name, routing_key=routing_key
+            )
+            self.subscriptions[routing_key] = callback
+            self.channel.basic_consume(
+                queue=queue_name, on_message_callback=self.on_message, auto_ack=False
+            )
+            logger.info(f"Subscribed to routing key: {routing_key}")
         except Exception as e:
             logger.error(f"Failed to subscribe: {e}")
             raise
 
-    def subscribe(self, event_type: str, callback):
-        """Register a subscription (does not start consuming yet).
-
-        Args:
-            event_type: Event type to subscribe to (e.g., 'chunksretrieved')
-            callback: Function to call when event is received
-        """
-        routing_key = event_type.lower()
-        self.subscriptions[routing_key] = callback
-        logger.info(f"Registered subscription for '{routing_key}' events")
+    def on_message(
+        self,
+        ch: BlockingChannel,
+        method: Basic.Deliver,
+        properties: BasicProperties,
+        body: bytes,
+    ):
+        """Handle incoming messages."""
+        try:
+            message = json.loads(body.decode())
+            routing_key = method.routing_key
+            if routing_key in self.subscriptions:
+                self.subscriptions[routing_key](message)
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+            else:
+                logger.warning(f"No callback for routing key: {routing_key}")
+        except Exception as e:
+            logger.error(f"Error processing message: {e}")
 
     def start_consuming(self):
-        """Start consuming messages for all registered subscriptions."""
-        for attempt in range(MAX_RETRIES):
-            if not self._connect():
-                if attempt < MAX_RETRIES - 1:
-                    delay = self._calculate_retry_delay(attempt)
-                    logger.warning(
-                        f"Retrying connection in {delay:.2f}s... "
-                        f"(attempt {attempt + 1}/{MAX_RETRIES})"
-                    )
-                    time.sleep(delay)
-                    continue
-                else:
-                    logger.error("Max retries reached. Could not establish connection.")
-                    raise ConnectionError(
-                        "Failed to connect to RabbitMQ after max retries"
-                    )
-
-            try:
-                # Set up all subscriptions
-                for routing_key, callback in self.subscriptions.items():
-                    # Create exclusive queue for this subscription
-                    result = self.channel.queue_declare(queue="", exclusive=True)
-                    queue_name = result.method.queue
-
-                    # Bind queue to exchange with routing key
-                    self.channel.queue_bind(
-                        exchange=EXCHANGE_NAME,
-                        queue=queue_name,
-                        routing_key=routing_key,
-                    )
-
-                    # Set up consumer
-                    self.channel.basic_qos(prefetch_count=1)
-                    self.channel.basic_consume(
-                        queue=queue_name, on_message_callback=callback, auto_ack=False
-                    )
-
-                    logger.info(
-                        f"Subscribed to '{routing_key}' events on "
-                        f"exchange '{EXCHANGE_NAME}'"
-                    )
-
-                logger.info(
-                    f"Starting to consume messages for "
-                    f"{len(self.subscriptions)} event types..."
-                )
-                self.channel.start_consuming()
-
-            except KeyboardInterrupt:
-                logger.info("Stopping consumer...")
-                self.stop()
-                break
-            except Exception as e:
-                logger.error(f"Error in consumer: {e}")
-                if attempt < MAX_RETRIES - 1:
-                    delay = self._calculate_retry_delay(attempt)
-                    logger.warning(f"Retrying in {delay:.2f}s...")
-                    time.sleep(delay)
-                else:
-                    raise
+        """Start consuming messages in a separate thread."""
+        if not self.consumer_thread or not self.consumer_thread.is_alive():
+            self.consumer_thread = threading.Thread(target=self._consume)
+            self.consumer_thread.daemon = True
+            self.consumer_thread.start()
+            logger.info("Started message consumer thread")
 
     def _consume(self):
         """Consume messages (runs in separate thread)."""
         try:
             self.channel.start_consuming()
         except Exception as e:
-            logger.error(f"Error stopping consumer: {e}")
+            logger.error(f"Error in consumer: {e}")
+
+    def close(self):
+        """Close the connection."""
+        if self.connection:
+            self.connection.close()
+            logger.info("Closed RabbitMQ connection")
