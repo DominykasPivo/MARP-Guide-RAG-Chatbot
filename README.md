@@ -60,7 +60,7 @@ Building a chat application that answers questions about Lancaster University’
 | **CI/CD** | **GitHub Actions** | Automated testing, linting, security scanning, and Docker builds |
 
 
-## **3\. Full Architecture Diagram (Provided by [Draw.io](http://Draw.io))**
+## **3\. High Level Architecture Overview **
 
 ## **The final, complete architecture diagram is maintained externally in Draw.io.**
 
@@ -118,10 +118,6 @@ graph LR
     Broker -->|Event| Index
     Index -->|"Writes Embeddings"| VectorDB
 ```
-
-**Please paste the public link or image markdown for your Draw.io diagram immediately below this line:**
-
-[https://drive.google.com/file/d/1GVf\_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing](https://drive.google.com/file/d/1GVf_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing)
 
 ## **4\. How It Works: Key Scenarios**
 
@@ -386,4 +382,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
