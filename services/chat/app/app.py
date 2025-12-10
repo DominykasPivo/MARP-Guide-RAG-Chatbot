@@ -1,33 +1,31 @@
+import logging
 import os
 import sys
-import time
-import json
 import uuid
-import logging
-import pika
-import httpx
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from typing import Optional
 
-from models import ChatRequest, ChatResponse, Chunk, Citation, LLMResponse
-from llm_rag_helpers import generate_answer_with_citations_async, generate_answers_parallel
+import httpx
 from events import publish_query_event
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from llm_rag_helpers import generate_answers_parallel
+from models import ChatResponse, Chunk, Citation, LLMResponse
+from pydantic import BaseModel
 
 
 class ChatRequestModel(BaseModel):
     query: str
-    selected_models: list[str] = None  # Add this for frontend LLM selection
+    selected_models: Optional[list[str]] = None
 
 
 # Configure logging
 
-logger = logging.getLogger('chat')
+logger = logging.getLogger("chat")
 logging.basicConfig(
-    level=logging.INFO,  
+    level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    stream=sys.stdout
+    stream=sys.stdout,
 )
 
 app = FastAPI(title="MARP Chat Service", version="1.0.0")
@@ -38,13 +36,17 @@ if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Environment variables
-RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
-RABBITMQ_URL = os.getenv('RABBITMQ_URL', f'amqp://guest:guest@{RABBITMQ_HOST}:5672/')
-RETRIEVAL_SERVICE_URL = os.getenv('RETRIEVAL_SERVICE_URL', 'http://retrieval:8000')
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", f"amqp://guest:guest@{RABBITMQ_HOST}:5672/")
+RETRIEVAL_SERVICE_URL = os.getenv("RETRIEVAL_SERVICE_URL", "http://retrieval:8000")
 
 # Multiple FREE LLM models to use for parallel generation
-LLM_MODELS = os.getenv('LLM_MODELS', 'google/gemma-2-9b-it:free,meta-llama/llama-3.2-3b-instruct:free,microsoft/phi-3-mini-128k-instruct:free').split(',')
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
+LLM_MODELS = os.getenv(
+    "LLM_MODELS",
+    "google/gemma-2-9b-it:free,meta-llama/llama-3.2-3b-instruct:free,"
+    "microsoft/phi-3-mini-128k-instruct:free",
+).split(",")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 # Log configured models (not API key)
 try:
@@ -56,40 +58,56 @@ except Exception:
     pass
 
 
-def filter_top_citations(citations: list[Citation], top_n: int = 3) -> list[Citation]:
-    """Filter and return only top N citations by score."""
+def filter_top_citations(
+    citations: list[Citation], top_n: int = 3, min_citations: int = 2
+) -> list[Citation]:
     if not citations:
+        logger.warning("⚠️ filter_top_citations: No citations to filter")
         return []
-    # Sort by score (descending) and take top N
+
+    log_msg = (
+        f"🔍 Filtering {len(citations)} citations "
+        f"(top_n={top_n}, min_citations={min_citations})"
+    )
+    logger.info(log_msg)
     sorted_citations = sorted(citations, key=lambda c: c.score, reverse=True)
-    return sorted_citations[:top_n]
+    # Ensure we return at least min_citations (2), but no more than top_n
+    num_to_return = max(min_citations, min(len(sorted_citations), top_n))
+    result = sorted_citations[:num_to_return]
+    citation_info = [(c.title, c.page, c.score) for c in result]
+    logger.info(
+        f"✅ Returning {len(result)} citations after filtering: {citation_info}"
+    )
+    return result
 
 
 # Async version of chunk retrieval
 async def get_chunks_via_http_async(query: str):
     """Get chunks from retrieval service via HTTP asynchronously."""
     try:
-        logger.info(f"🔍 Querying retrieval service via HTTP: {RETRIEVAL_SERVICE_URL}")
+        logger.info(
+            f"🔍 Querying retrieval service via HTTP: " f"{RETRIEVAL_SERVICE_URL}"
+        )
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{RETRIEVAL_SERVICE_URL}/query",
-                json={"query": query},
-                timeout=30.0
+                f"{RETRIEVAL_SERVICE_URL}/query", json={"query": query}, timeout=30.0
             )
         if response.status_code == 200:
             data = response.json()
-            chunks = data.get('chunks', [])
+            chunks = data.get("chunks", [])
             logger.info(f"✅ Retrieved {len(chunks)} chunks via HTTP (async)")
             return chunks
         else:
             logger.error(f"❌ HTTP request failed: {response.status_code}")
             return []
     except Exception as e:
-        logger.error(f"❌ Error getting chunks via HTTP (async): {str(e)}", exc_info=True)
+        logger.error(
+            f"❌ Error getting chunks via HTTP (async): {str(e)}", exc_info=True
+        )
         return []
 
 
-@app.get('/')
+@app.get("/")
 async def index():
     """Serve the main UI page"""
     static_file = os.path.join(os.path.dirname(__file__), "static", "index.html")
@@ -98,21 +116,21 @@ async def index():
     return {"message": "UI not available. Access /chat endpoint directly."}
 
 
-@app.get('/health')
+@app.get("/health")
 async def health():
     """Health check endpoint"""
     logger.info("Health check requested")
     return {"status": "healthy"}
 
 
-@app.get('/models')
+@app.get("/models")
 async def get_available_models():
     """Get list of available LLM models"""
     models = [m.strip() for m in LLM_MODELS if m.strip()]
     return {"models": models}
 
 
-@app.post('/chat')
+@app.post("/chat")
 async def chat(request: Request, chat_request: ChatRequestModel):
     """Main chat endpoint (async)"""
     try:
@@ -121,15 +139,20 @@ async def chat(request: Request, chat_request: ChatRequestModel):
             raise HTTPException(status_code=400, detail="Query is required")
 
         correlation_id = str(uuid.uuid4())
-        logger.info(f"💬 Received chat request: '{query}' (correlation_id: {correlation_id})")
+        logger.info(
+            f"💬 Received chat request: '{query}' "
+            f"(correlation_id: {correlation_id})"
+        )
 
         # Use selected models or fall back to all configured models
-        models_to_use = chat_request.selected_models if chat_request.selected_models else LLM_MODELS
+        models_to_use = (
+            chat_request.selected_models if chat_request.selected_models else LLM_MODELS
+        )
         models_to_use = [m.strip() for m in models_to_use if m.strip()]
-        
+
         if not models_to_use:
             raise HTTPException(status_code=400, detail="No valid models selected")
-        
+
         logger.info(f"🤖 Using models: {models_to_use}")
 
         # ✅ PUBLISH queryreceived EVENT - THIS IS THE KEY ADDITION
@@ -140,21 +163,23 @@ async def chat(request: Request, chat_request: ChatRequestModel):
         chunks_data = await get_chunks_via_http_async(query)
 
         if not chunks_data:
-            logger.warning("⚠️ No chunks found for query; returning multi-LLM fallback response")
+            logger.warning(
+                "⚠️ No chunks found for query; returning multi-LLM " "fallback response"
+            )
             # Return a response per selected model to keep schema consistent
             fallback_responses = [
                 LLMResponse(
                     model=m.strip(),
-                    answer="I couldn't find any relevant information to answer your question.",
+                    answer=(
+                        "I couldn't find any relevant information to "
+                        "answer your question."
+                    ),
                     citations=[],
-                    generation_time=0.0
+                    generation_time=0.0,
                 )
                 for m in models_to_use
             ]
-            response = ChatResponse(
-                query=query,
-                responses=fallback_responses
-            )
+            response = ChatResponse(query=query, responses=fallback_responses)
             return JSONResponse(status_code=200, content=response.dict())
 
         # Convert to Chunk objects
@@ -162,19 +187,22 @@ async def chat(request: Request, chat_request: ChatRequestModel):
         logger.info(f"✅ Processing {len(chunks)} chunks")
 
         # Generate answers from multiple LLMs in parallel
-        logger.info(f"🤖 Generating answers from {len(models_to_use)} models in parallel...")
-        llm_responses = await generate_answers_parallel(query, chunks, api_key=OPENROUTER_API_KEY, models=models_to_use)
+        logger.info(
+            f"🤖 Generating answers from {len(models_to_use)} models " f"in parallel..."
+        )
+        llm_responses = await generate_answers_parallel(
+            query, chunks, api_key=OPENROUTER_API_KEY, models=models_to_use
+        )
 
         # Filter citations for each response (keep top 3 by score)
         for response in llm_responses:
             response.citations = filter_top_citations(response.citations, top_n=3)
 
-        logger.info(f"✅ Generated {len(llm_responses)} responses with filtered citations")
-
-        response = ChatResponse(
-            query=query,
-            responses=llm_responses
+        logger.info(
+            f"✅ Generated {len(llm_responses)} responses with filtered " f"citations"
         )
+
+        response = ChatResponse(query=query, responses=llm_responses)
 
         return JSONResponse(status_code=200, content=response.dict())
 
