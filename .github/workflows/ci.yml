@@ -104,23 +104,27 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-coverage-${{ matrix.python-version }}-${{ github.run_number }}
-          path: coverage/unit.xml
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage/unit.xml
-          flags: unit-tests
-          name: unit-${{ matrix.python-version }}
+          path: tests/coverage.xml
 
   integration-tests:
     runs-on: ubuntu-22.04
     needs: [lint, unit-tests, type-check, security-scan]
     env:
       DATA_DIR: ${{ github.workspace }}/data
+    strategy:
+      fail-fast: true
     steps:
+      - name: Prune Docker system
+        run: docker system prune -af
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose -f docker-compose.test.yml up -d
+
+      - name: Wait for services
+        run: chmod +x ./scripts/wait-for-services.sh && ./scripts/wait-for-services.sh
+        timeout-minutes: 5
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -137,41 +141,30 @@ jobs:
           pip install -r services/chat/requirements.txt
           pip install -r services/retrieval/requirements.txt
 
-      - name: Set PYTHONPATH
-        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-
-      - name: Install coverage tools
-        run: pip install pytest pytest-cov==5.0.0 coverage==7.5.1
-
       - name: Run integration tests
-        run: pytest tests/integration/ -v --cov --cov-report=xml:coverage/integration.xml
+        run: pytest tests/integration/ -v
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage/integration.xml
-          flags: integration-tests
-          name: integration-tests
+      - name: Tear down services
+        if: always()
+        run: docker compose down -v
 
-  docker-build:
-    name: Docker Build Test
+  build:
     runs-on: ubuntu-22.04
     needs: [integration-tests]
-    strategy:
-      matrix:
-        service: [ingestion, extraction, indexing, retrieval, chat]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Free up disk space
-        run: |
-          docker system prune -af --volumes
-          df -h
+      - name: Build all Docker images
+        run: docker compose build
 
-      - name: Build Docker image
-        run: |
-          docker build -f services/${{ matrix.service }}/Dockerfile -t marp-${{ matrix.service }}:test services/${{ matrix.service }}
+      - name: Start services
+        run: docker compose up -d
 
-      - name: Test Docker image
+      - name: Health check endpoints
         run: |
-          docker run --rm marp-${{ matrix.service }}:test python --version
+          curl -f http://localhost:8001/health
+
+      - name: Tear down services
+        if: always()
+        run: docker compose down -v
