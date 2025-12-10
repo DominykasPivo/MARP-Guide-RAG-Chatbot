@@ -51,7 +51,7 @@ Building a chat application that answers questions about Lancaster University’
 | :---- | :---- | :---- |
 | **Backend** | **Python (FastAPI)** | High-performance async API framework for all microservices (Replaced Flask) |
 | **Event Broker** | **RabbitMQ** | Asynchronous message queue for event-driven architecture |
-| **Vector Database** | **Qdrant** | Efficient vector similarity search for semantic retrieval |
+| **Vector Database** | **Qdrant** | Efficient vector similarity search for semantic retrieval (Replaced chromaDB) |
 | **Embeddings** | **Sentence Transformers** | Pre-trained models for converting text to vector embeddings |
 | **LLM Integration** | **OpenRouter** | Access to multiple free and paid language models |
 | **Tokenization** | **Tiktoken** | OpenAI's tokenizer for accurate token counting and chunking |
@@ -386,6 +386,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
