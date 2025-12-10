@@ -1216,10 +1216,8 @@ class TestEventConsumer:
         # Mock start_consuming to avoid blocking
         mock_channel.start_consuming.side_effect = KeyboardInterrupt()
 
-        try:
-            consumer.start_consuming()
-        except SystemExit:
-            pass
+        # start_consuming handles KeyboardInterrupt internally and exits cleanly
+        consumer.start_consuming()
 
         # Verify queue was declared (exclusive)
         mock_channel.queue_declare.assert_called_once_with(queue="", exclusive=True)
