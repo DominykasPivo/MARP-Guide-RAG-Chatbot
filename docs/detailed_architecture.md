@@ -7,12 +7,12 @@
 [https://drive.google.com/file/d/1GVf\_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing](https://drive.google.com/file/d/1GVf_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing)
 
 
-**This document details the microservice boundaries and communication flows for the Chat AI Application, utilizing Synchronous HTTP Communication (FastAPI) for the RAG query path and an Asynchronous Event-Driven Architecture (EDA) for the non-blocking document ingestion pipeline.**
+**This document details the microservice boundaries and communication flows for the Chat AI Application, utilizing Synchronous HTTP Communication (FastAPI) for the RAG query path and an Asynchronous Event-Driven Architecture (EDA) for the non-blocking document ingestion pipeline.
 
 
 ### **1\. Synchronous Flow: User Chat Request (RAG)**
 
-**This flow represents the real-time request path taken when a user submits a query. It is a synchronous process designed to deliver a consolidated answer derived from multiple LLMs and the vector knowledge base (Qdrant). All core services are implemented using FastAPI to handle the blocking HTTP communication pattern.**
+**This flow represents the real-time request path taken when a user submits a query. It is a synchronous process designed to deliver a consolidated answer derived from multiple LLMs and the vector knowledge base (Qdrant). All core services are implemented using FastAPI to handle the blocking HTTP communication pattern.
 
 | Step | Initiator | Target | Communication Type | Payload/Action |
 | :---- | :---- | :---- | :---- | :---- |
@@ -30,7 +30,7 @@
 
 ### **2\. Asynchronous Flow: Document Ingestion Process (Event-Driven Architecture)**
 
-**This workflow is non-blocking and uses the Event Broker (RabbitMQ) to decouple services. The user receives an immediate confirmation, while the computationally intensive tasks of extraction, embedding, and indexing run asynchronously in the background.**
+**This workflow is non-blocking and uses the Event Broker (RabbitMQ) to decouple services. The user receives an immediate confirmation, while the computationally intensive tasks of extraction, embedding, and indexing run asynchronously in the background.
 
 | Step | Initiator | Target | Communication Type | Payload/Action |
 | :---- | :---- | :---- | :---- | :---- |
@@ -50,8 +50,11 @@
 * **API Gateway (Port 8000): Only public-facing service. Uses HTTP/S Request for external communication.  
 * **Internal Microservices (FastAPI): Communicate via HTTP for the synchronous RAG path.
 * **Data Pipeline Services: Communicate asynchronously using the Event Broker (RabbitMQ) for the document ingestion path.
-* **Databases:** Qdrant is used as the high-performance Vector Database (accessed by Retrieval and Indexing services).
+
+* **Databases:**
+
 * Qdrant is used as the high-performance Vector Database (accessed by Retrieval and Indexing services).
 * PostgreSQL is used as the User Database for user data, chat history, and document metadata (accessed by Auth and Indexing services).
 * External LLMs: Accessed via the Orchestrator service's external API calls.
+
 
