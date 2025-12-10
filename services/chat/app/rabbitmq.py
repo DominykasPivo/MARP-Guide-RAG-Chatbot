@@ -39,7 +39,16 @@ class EventConsumer:
         delay += random.uniform(-jitter, jitter)  # nosec B311
         return max(0, delay)  # type: ignore[return-value]
 
-    def _connect(self) -> bool:
+    def __init__(self, host: str = "localhost", port: int = 5672):
+        self.host = host
+        self.port = port
+        self.connection: Optional[pika.BlockingConnection] = None
+        self.channel: Optional[BlockingChannel] = None
+        self.subscriptions: Dict[str, Callable] = {}
+        self.consumer_thread: Optional[threading.Thread] = None
+        self._connect()
+
+    def _connect(self):
         """Establish connection to RabbitMQ."""
         try:
             if self.connection and not self.connection.is_closed:
@@ -52,8 +61,6 @@ class EventConsumer:
                 connection_attempts=MAX_RETRIES,
                 retry_delay=INITIAL_RETRY_DELAY,
             )
-
-            logger.info(f"Connecting to RabbitMQ at {self.host}...")
             self.connection = pika.BlockingConnection(parameters)
             self.channel = self.connection.channel()
 
@@ -69,8 +76,8 @@ class EventConsumer:
             logger.error(f"Failed to connect to RabbitMQ: {e}")
             return False
         except Exception as e:
-            logger.error(f"Unexpected error connecting to RabbitMQ: {e}")
-            return False
+            logger.error(f"Failed to subscribe: {e}")
+            raise
 
     def subscribe(self, event_type: str, callback):
         """Register a subscription (does not start consuming yet).
@@ -145,13 +152,9 @@ class EventConsumer:
                 else:
                     raise
 
-    def stop(self):
-        """Stop consuming and close connection."""
+    def _consume(self):
+        """Consume messages (runs in separate thread)."""
         try:
-            if self.channel:
-                self.channel.stop_consuming()
-            if self.connection and not self.connection.is_closed:
-                self.connection.close()
-            logger.info("EventConsumer stopped")
+            self.channel.start_consuming()
         except Exception as e:
             logger.error(f"Error stopping consumer: {e}")

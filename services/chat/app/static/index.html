@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARP AI Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: rgba(255, 255, 255, 0.02);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --accent: #007aff;
+            --accent-glow: rgba(0, 122, 255, 0.3);
+            --border: rgba(255, 255, 255, 0.08);
+            --spacing-xs: 8px;
+            --spacing-sm: 16px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+            --spacing-xl: 48px;
+            --spacing-xxl: 64px;
+            --easing: cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 17px;
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.8s var(--easing);
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), #00d4ff);
+            width: 0%;
+            z-index: 9999;
+            transition: width 0.1s ease-out;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            backdrop-filter: blur(20px);
+            background: rgba(0, 0, 0, 0.5);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+            transform: translateY(-100%);
+            transition: transform 0.8s var(--easing);
+        }
+
+        .nav.visible {
+            transform: translateY(0);
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff, #a1a1a6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-xxl) var(--spacing-lg);
+            padding-top: 120px;
+            min-height: 100vh;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: var(--spacing-xxl);
+            opacity: 0;
+            transform: translateY(50px);
+        }
+
+        .hero h1 {
+            font-size: clamp(48px, 8vw, 96px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: var(--spacing-md);
+            background: linear-gradient(135deg, #fff 0%, #a1a1a6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: clamp(17px, 2vw, 21px);
+            color: var(--text-secondary);
+            letter-spacing: -0.01em;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+            opacity: 0;
+            transform: translateY(30px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Messages Area */
+        .messages {
+            min-height: 400px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            scroll-behavior: smooth;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 3px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .message {
+            margin-bottom: var(--spacing-lg);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.6s var(--easing) forwards;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-user {
+            text-align: right;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: 20px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message-user .message-bubble {
+            background: var(--accent);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-assistant .message-bubble {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-model {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xs);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .message-text {
+            line-height: 1.6;
+        }
+
+        .citations {
+            margin-top: var(--spacing-md);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--border);
+        }
+
+        .citation {
+            display: inline-block;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            margin: var(--spacing-xs) var(--spacing-xs) 0 0;
+            background: rgba(0, 122, 255, 0.1);
+            border: 1px solid rgba(0, 122, 255, 0.2);
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--accent);
+            text-decoration: none;
+            transition: all 0.3s var(--easing);
+        }
+
+        .citation:hover {
+            background: rgba(0, 122, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+        }
+
+        .loading-indicator {
+            display: none;
+            padding: var(--spacing-md);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .loading-indicator.active {
+            display: block;
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        /* Input Area */
+        .input-area {
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .input-wrapper textarea {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: var(--spacing-md) var(--spacing-lg);
+            color: var(--text-primary);
+            font-size: 17px;
+            font-family: inherit;
+            resize: none;
+            min-height: 56px;
+            max-height: 200px;
+            transition: all 0.3s var(--easing);
+            letter-spacing: -0.01em;
+        }
+
+        .input-wrapper textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .input-wrapper textarea::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .send-button {
+            padding: var(--spacing-md) var(--spacing-xl);
+            background: linear-gradient(135deg, var(--accent), #00d4ff);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s var(--easing);
+            letter-spacing: -0.01em;
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 122, 255, 0.4);
+        }
+
+        .send-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Model Selector */
+        .model-selector {
+            margin-bottom: var(--spacing-lg);
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .model-selector label {
+            display: block;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-sm);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .model-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+        }
+
+        .model-chip {
+            padding: var(--spacing-xs) var(--spacing-md);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s var(--easing);
+        }
+
+        .model-chip:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .model-chip.active {
+            background: rgba(0, 122, 255, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Particles Background */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 20s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-lg) var(--spacing-md);
+                padding-top: 100px;
+            }
+
+            .hero h1 {
+                font-size: clamp(36px, 10vw, 64px);
+            }
+
+            .message-bubble {
+                max-width: 90%;
+            }
+
+            .input-area {
+                flex-direction: column;
+            }
+
+            .send-button {
+                width: 100%;
+            }
+        }
+
+        /* Error Message */
+        .error {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff3b30;
+            padding: var(--spacing-md);
+            border-radius: 16px;
+            margin-bottom: var(--spacing-lg);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Navigation -->
+    <nav class="nav" id="nav">
+        <div class="nav-content">
+            <div class="logo">MARP AI</div>
+        </div>
+    </nav>
+
+    <!-- Particles Background -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero" id="hero">
+            <h1>Ask Anything</h1>
+            <p>Powered by advanced AI models with real-time document retrieval</p>
+        </div>
+
+        <!-- Model Selector -->
+        <div class="model-selector" id="modelSelector">
+            <label>Select Models</label>
+            <div class="model-chips" id="modelChips"></div>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="chat-container" id="chatContainer">
+            <div class="messages" id="messages"></div>
+            <div class="loading-indicator" id="loadingIndicator">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea
+                        id="messageInput"
+                        placeholder="Ask a question about MARP regulations..."
+                        rows="1"
+                    ></textarea>
+                </div>
+                <button class="send-button" id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize GSAP
+        gsap.registerPlugin(ScrollTrigger);
+
+        // State
+        let availableModels = [];
+        let selectedModels = [];
+        let isLoading = false;
+
+        // DOM Elements
+        const loadingScreen = document.getElementById('loadingScreen');
+        const progressBar = document.getElementById('progressBar');
+        const nav = document.getElementById('nav');
+        const hero = document.getElementById('hero');
+        const modelSelector = document.getElementById('modelSelector');
+        const chatContainer = document.getElementById('chatContainer');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const modelChips = document.getElementById('modelChips');
+
+        // Default models fallback (matches backend defaults)
+        const DEFAULT_MODELS = [
+            'google/gemma-2-9b-it:free',
+            'meta-llama/llama-3.2-3b-instruct:free',
+            'microsoft/phi-3-mini-128k-instruct:free'
+        ];
+
+        // Load available models with retry and fallback
+        async function loadModels(retries = 5) {
+            // Show loading state
+            modelChips.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px;">Loading models...</div>';
+
+            for (let attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    console.log(`Attempting to load models (attempt ${attempt}/${retries})...`);
+
+                    // Try different endpoint variations
+                    const endpoints = ['/models', './models', '/api/models', 'models'];
+                    let lastError = null;
+
+                    for (const endpoint of endpoints) {
+                        try {
+                            console.log(`Trying endpoint: ${endpoint}`);
+                            const response = await fetch(endpoint, {
+                                method: 'GET',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                },
+                                cache: 'no-cache',
+                                credentials: 'same-origin',
+                            });
+
+                            console.log(`Response status: ${response.status}`, response);
+
+                            if (!response.ok) {
+                                lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                continue; // Try next endpoint
+                            }
+
+                            const contentType = response.headers.get('content-type');
+                            if (!contentType || !contentType.includes('application/json')) {
+                                lastError = new Error('Response is not JSON');
+                                continue;
+                            }
+
+                            const data = await response.json();
+                            console.log('Models response data:', data);
+
+                            // Handle multiple response formats
+                            let models = [];
+                            if (Array.isArray(data)) {
+                                models = data;
+                            } else if (data.models && Array.isArray(data.models)) {
+                                models = data.models;
+                            } else if (data.data && Array.isArray(data.data)) {
+                                models = data.data;
+                            } else if (typeof data === 'object' && Object.keys(data).length > 0) {
+                                // Try to extract models from object
+                                models = Object.values(data).find(v => Array.isArray(v)) || [];
+                            }
+
+                            if (models.length === 0) {
+                                console.warn('No models found in response, using defaults');
+                                models = DEFAULT_MODELS;
+                            }
+
+                            // Success! Render models
+                            availableModels = models;
+                            selectedModels = [...models];
+                            renderModelChips();
+                            console.log(`✅ Successfully loaded ${models.length} models`);
+                            return;
+
+                        } catch (endpointError) {
+                            console.error(`Error with endpoint ${endpoint}:`, endpointError);
+                            lastError = endpointError;
+                            continue;
+                        }
+                    }
+
+                    // If all endpoints failed, throw the last error
+                    if (lastError) {
+                        throw lastError;
+                    }
+
+                } catch (error) {
+                    console.error(`Failed to load models (attempt ${attempt}/${retries}):`, error);
+
+                    if (attempt === retries) {
+                        // Last attempt failed - use fallback
+                        console.warn('All attempts failed, using default models');
+                        availableModels = DEFAULT_MODELS;
+                        selectedModels = [...DEFAULT_MODELS];
+                        renderModelChips();
+                        modelChips.innerHTML += `
+                            <div style="color: #ff9500; font-size: 12px; margin-top: var(--spacing-xs); padding: var(--spacing-xs); background: rgba(255, 149, 0, 0.1); border-radius: 8px;">
+                                ⚠️ Using default models (API unavailable: ${error.message})
+                            </div>
+                        `;
+                        return;
+                    } else {
+                        // Show retry message
+                        modelChips.innerHTML = `
+                            <div style="color: var(--text-secondary); font-size: 14px; padding: var(--spacing-sm);">
+                                Loading models... (attempt ${attempt}/${retries})
+                                <br>
+                                <small style="color: var(--text-secondary); opacity: 0.7;">
+                                    ${error.message}
+                                </small>
+                            </div>
+                        `;
+                        // Wait before retry
+                        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                    }
+                }
+            }
+        }
+
+        // Toggle model selection
+        function toggleModel(model, chip) {
+            const index = selectedModels.indexOf(model);
+            if (index > -1) {
+                selectedModels.splice(index, 1);
+                chip.classList.remove('active');
+            } else {
+                selectedModels.push(model);
+                chip.classList.add('active');
+            }
+        }
+
+        // Render model chips (extracted function)
+        function renderModelChips() {
+            modelChips.innerHTML = '';
+            if (availableModels.length === 0) {
+                modelChips.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px;">No models available</div>';
+                return;
+            }
+
+            availableModels.forEach(model => {
+                const chip = document.createElement('div');
+                chip.className = 'model-chip active';
+                // Better model name formatting
+                const modelName = model.includes('/')
+                    ? model.split('/').pop().split(':')[0]
+                    : model.split(':')[0];
+                chip.textContent = modelName;
+                chip.dataset.model = model;
+                chip.title = model; // Show full name on hover
+                chip.addEventListener('click', () => toggleModel(model, chip));
+                modelChips.appendChild(chip);
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            sendButton.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Auto-resize textarea
+            messageInput.addEventListener('input', () => {
+                messageInput.style.height = 'auto';
+                messageInput.style.height = messageInput.scrollHeight + 'px';
+            });
+        }
+
+        // Send message
+        async function sendMessage() {
+            const query = messageInput.value.trim();
+            if (!query || isLoading) return;
+
+            // Add user message
+            addMessage('user', query, null);
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            // Show loading
+            isLoading = true;
+            sendButton.disabled = true;
+            loadingIndicator.classList.add('active');
+
+            try {
+                // Build request body - match the curl format exactly
+                const requestBody = {
+                    query: query
+                };
+                
+                // Only include selected_models if we have selections
+                // If all models selected or none selected, send all available models
+                if (selectedModels.length > 0 && selectedModels.length < availableModels.length) {
+                    requestBody.selected_models = selectedModels;
+                } else if (selectedModels.length === 0 && availableModels.length > 0) {
+                    // If none selected, use all available
+                    requestBody.selected_models = availableModels;
+                }
+                // If all models are selected, don't send selected_models (let backend use default)
+
+                console.log('Sending request:', requestBody); // Debug log
+
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                // Hide loading
+                loadingIndicator.classList.remove('active');
+
+                if (!response.ok) {
+                    // Try to get error message from response
+                    let errorMessage = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.detail) {
+                            errorMessage = errorData.detail;
+                        } else if (errorData.error) {
+                            errorMessage = errorData.error;
+                        }
+                    } catch (e) {
+                        // If response isn't JSON, use status text
+                        errorMessage = response.statusText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+                console.log('Response received:', data); // Debug log
+
+                // Add assistant responses
+                if (data.responses && data.responses.length > 0) {
+                    data.responses.forEach((llmResponse, index) => {
+                        setTimeout(() => {
+                            addMessage(
+                                'assistant',
+                                llmResponse.answer,
+                                llmResponse.model,
+                                llmResponse.citations,
+                                llmResponse.generation_time
+                            );
+                        }, index * 200); // Stagger responses
+                    });
+                } else {
+                    addMessage('assistant', 'No response received.', null);
+                }
+            } catch (error) {
+                loadingIndicator.classList.remove('active');
+                // Show more specific error message
+                const errorMsg = error.message || 'Failed to send message. Please try again.';
+                showError(errorMsg);
+                console.error('Error details:', error);
+            } finally {
+                isLoading = false;
+                sendButton.disabled = false;
+            }
+        }
+
+        // Add message to chat
+        function addMessage(type, text, model, citations = [], generationTime = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${type}`;
+
+            let html = '';
+            if (type === 'assistant' && model) {
+                html += `<div class="message-model">${model.split('/').pop().split(':')[0]}`;
+                if (generationTime) {
+                    html += ` • ${generationTime.toFixed(2)}s`;
+                }
+                html += `</div>`;
+            }
+
+            html += `<div class="message-bubble">`;
+            html += `<div class="message-text">${formatText(text)}</div>`;
+            html += `</div>`;
+
+            if (citations && citations.length > 0) {
+                html += `<div class="citations">`;
+                citations.forEach(citation => {
+                    const citationText = `${citation.title} (Page ${citation.page})`;
+                    html += `<a href="${citation.url}" target="_blank" class="citation" title="${citationText}">${citationText}</a>`;
+                });
+                html += `</div>`;
+            }
+
+            messageDiv.innerHTML = html;
+            messages.appendChild(messageDiv);
+
+            // Scroll to bottom
+            messages.scrollTop = messages.scrollHeight;
+
+            // Animate in
+            gsap.from(messageDiv, {
+                opacity: 0,
+                y: 20,
+                duration: 0.4,
+                ease: 'power2.out'
+            });
+        }
+
+        // Format text (basic markdown-like formatting)
+        function formatText(text) {
+            return text
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        }
+
+        // Show error
+        function showError(message) {
+            // Remove any existing errors first
+            const existingError = messages.querySelector('.error');
+            if (existingError) {
+                existingError.remove();
+            }
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            messages.appendChild(errorDiv);
+
+            // Scroll to error
+            messages.scrollTop = messages.scrollHeight;
+
+            // Animate in
+            gsap.from(errorDiv, {
+                opacity: 0,
+                y: 20,
+                duration: 0.4,
+                ease: 'power2.out'
+            });
+
+            // Auto-remove after 8 seconds
+            setTimeout(() => {
+                gsap.to(errorDiv, {
+                    opacity: 0,
+                    y: -20,
+                    duration: 0.4,
+                    onComplete: () => errorDiv.remove()
+                });
+            }, 8000);
+        }
+
+        // Create particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Setup scroll progress
+        function setupScrollProgress() {
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const scrollPercent = (scrollTop / docHeight) * 100;
+                progressBar.style.width = scrollPercent + '%';
+            });
+        }
+
+        // Initialize
+        async function init() {
+            // Hide loading screen after 1s
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+            }, 1000);
+
+            // Animate nav
+            setTimeout(() => {
+                nav.classList.add('visible');
+            }, 1200);
+
+            // Start loading models immediately (don't wait)
+            loadModels();
+
+            // Animate hero and chat
+            gsap.to(hero, {
+                opacity: 1,
+                y: 0,
+                duration: 1.2,
+                ease: 'power3.out',
+                delay: 0.5
+            });
+
+            gsap.to([modelSelector, chatContainer], {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: 'power2.out',
+                delay: 0.8,
+                stagger: 0.1
+            });
+
+            // Create particles
+            createParticles();
+
+            // Setup scroll progress
+            setupScrollProgress();
+
+            // Setup event listeners
+            setupEventListeners();
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

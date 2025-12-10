@@ -6,7 +6,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-import aiofiles
+import aiofiles  # type: ignore[import-untyped]
 from discoverer import MARPDocumentDiscoverer
 from events import publish_document_discovered_event
 from fastapi import BackgroundTasks, FastAPI, HTTPException

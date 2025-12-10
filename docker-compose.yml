@@ -151,6 +151,7 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - OPENROUTER_API_KEY=
+
       - LLM_MODEL=openai/gpt-oss-20b:free
       - LLM_MODELS=openai/gpt-oss-20b:free,google/gemma-3n-e4b-it:free,mistralai/mistral-7b-instruct:free
       - PORT=8000

@@ -37,7 +37,10 @@ class Retriever:
         self._initialize()
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Search for relevant chunks using Qdrant."""
+        """Search for relevant chunks using Qdrant.
+        Always returns exactly top_k chunks (or as many as available).
+        Requests more from Qdrant to account for deduplication.
+        """
         try:
             # Lowercase query for consistent preprocessing
             query_proc = query.lower()
@@ -51,27 +54,50 @@ class Retriever:
             # Qdrant search
             if not self.client:
                 raise RuntimeError("Qdrant client not initialized")
+
+            # Request more results from Qdrant to account for deduplication
+            # Request 3x top_k to ensure we get enough unique chunks
+            qdrant_limit = max(top_k * 3, 15)  # At least 15, or 3x top_k
+
             logger.info(
                 f"🔍 Searching Qdrant collection '{self.collection_name}' "
-                f"for top {top_k} results"
+                f"for top {qdrant_limit} results (to get {top_k} unique chunks)"
             )
+
             search_results = self.client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
-                limit=top_k,
+                limit=qdrant_limit,
                 with_payload=True,
                 with_vectors=False,
             )
 
+            logger.info(f"📊 Qdrant returned {len(search_results)} raw results")
+
             chunks: List[Dict[str, Any]] = []
             seen = set()
+
             for result in search_results:
+                # Stop if we have enough chunks
+                if len(chunks) >= top_k:
+                    break
+
                 payload = result.payload or {}
                 text = payload.get("text", "")
                 url = payload.get("url", "")
-                dedup_key = (text.strip(), url.strip())
+                chunk_index = payload.get("chunk_index", 0)
+
+                # Use a more specific dedup key that includes chunk_index
+                # This ensures different chunks from same page are kept
+                dedup_key = (
+                    text.strip()[:100],
+                    url.strip(),
+                    chunk_index,
+                )  # First 100 chars of text + url + index
+
                 if dedup_key in seen:
                     continue
+
                 seen.add(dedup_key)
                 chunks.append(
                     {
@@ -81,10 +107,26 @@ class Retriever:
                         "title": payload.get("title", "MARP Document"),
                         "page": payload.get("page", 0),
                         "url": url,
-                        "chunkIndex": payload.get("chunk_index", 0),
+                        "chunkIndex": chunk_index,
                     }
                 )
-            logger.info(f"✅ Retrieved {len(chunks)} unique chunks from Qdrant")
+
+            log_msg = (
+                f"✅ Retrieved {len(chunks)} unique chunks from Qdrant "
+                f"(requested {top_k}, got {len(chunks)} from "
+                f"{len(search_results)} raw results)"
+            )
+            logger.info(log_msg)
+
+            # If we still don't have enough, log a warning
+            if len(chunks) < top_k:
+                warning_msg = (
+                    f"⚠️ Only retrieved {len(chunks)} chunks (requested {top_k}). "
+                    f"This might indicate limited data in Qdrant or "
+                    f"aggressive deduplication."
+                )
+                logger.warning(warning_msg)
+
             return chunks
         except Exception as e:
             logger.error(f"❌ Search failed: {e}", exc_info=True)

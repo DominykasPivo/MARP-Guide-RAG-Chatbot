@@ -98,7 +98,7 @@ jobs:
         run: pip install pytest-cov==5.0.0 coverage==7.5.1
 
       - name: Run unit tests
-        run: pytest tests/unit/ --cov --cov-report=xml:tests/coverage.xml
+        run: pytest tests/unit/ --cov --cov-report=xml:coverage/unit.xml
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
