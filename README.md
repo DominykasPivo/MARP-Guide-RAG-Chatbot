@@ -15,7 +15,7 @@ Building a chat application that answers questions about Lancaster University’
 
 * **User Authentication:** Secure login and registration so every user has their own private chat history.  
 * **Document Ingestion Pipeline:** An event-driven workflow for reliably processing new documents (MARP PDFs) and updating the knowledge base.  
-* **Vector-Powered Memory (RAG):** The app uses a special **ChromaDB** vector database to "remember" past conversations and provide **Retrieval-Augmented Generation (RAG)** answers.  
+* **Vector-Powered Memory (RAG):** The app uses a special **Qdrant** vector database to "remember" past conversations and provide **Retrieval-Augmented Generation (RAG)** answers.  
 * **Multi-Model Comparison:** Get answers from different LLMs (like GPT-4, Claude 3, etc.) for the *same question*, shown side-by-side so you can compare them.
 
 ## **2\. Technology Stack**
@@ -24,10 +24,10 @@ This project is built using a modern, professional stack:
 
 | Component | Technology | Purpose |
 | :---- | :---- | :---- |
-| **Frontend (UI)** | **React** | The fast, modern website you interact with. |
-| **Backend (APIs)** | **Python (Flask)** | Powers all the "behind-the-scenes" logic and microservices. |
+| **Frontend (UI)** | **FastAPI** | Serves the HTML for the UI. Used to be (React) |
+| **Backend (APIs)** | **Python (FastAPI)** | High-performance, modern framework for all microservices. Used to be (Flask) |
 | **Event Broker** | **RabbitMQ** | Manages asynchronous background tasks (Document Pipeline). |
-| **Vector Database** | **ChromaDB** | The AI's "memory," storing document chunks as searchable vectors. |
+| **Vector Database** | **Qdrant** | High-performance, scalable vector store for RAG. replaced ChromaDB |
 | **User Database** | **PostgreSQL** | Standard SQL database for securely storing user accounts and metadata. |
 
 
@@ -45,7 +45,7 @@ This project is built using a modern, professional stack:
 
 * ### This workflow is a single, blocking chain of REST calls responsible for reliably processing a new MARP PDF and integrating its content into the knowledge base. The user must wait for the entire process—including extraction, chunking, vector embedding, and database writes—to complete before receiving a final confirmation.
 
-* ### Flow Summary: The Ingestion Service initiates a blocking call to the Extraction Service. The Extraction Service performs text extraction and then initiates a blocking call to the Indexing Service. The Indexing Service performs the computationally heavy work (embedding generation and vector writes to ChromaDB) before the successful response cascades back up through the chain to the user.
+* ### Flow Summary: The Ingestion Service initiates a blocking call to the Extraction Service. The Extraction Service performs text extraction and then initiates a blocking call to the Indexing Service. The Indexing Service performs the computationally heavy work (embedding generation and vector writes to Qdrant) before the successful response cascades back up through the chain to the user.
 
 
 
@@ -53,14 +53,16 @@ This project is built using a modern, professional stack:
 
 The **API Gateway** remains the single public entry point; all other services are internal.
 
-| Service | Host Port | Container Port | Notes |
-| :---- | :---- | :---- | :---- |
-| APIGateway | 8000 | 8000 | **Public:** Frontend (React) talks to this port. |
-| Ingestion | 8001 | 8000 | **Internal:** Listens for external documents. |
-| Extraction | 8002 | 8000 | **Internal:** Consumes events from RabbitMQ. |
-| Indexing | 8003 | 8000 | **Internal:** Consumes events to generate embeddings. |
-| Chat | 8004 | 8000 | **Internal:** Manages conversation state and orchestrates RAG flow. |
-| Retrieval | 8005 | 8000 | **Internal:** Queries the VectorDB. |
+| Service | Host Port | Notes |
+| :---- | :---- | :---- |
+| APIGateway | 8000 | **Public:** This is the entry point for users/UI access. |
+| Auth | 8006 | **Internal:** Handles user authentication and authorization (Login/Registration). |
+| Ingestion | 8001 | **Internal:** Listens for external documents. |
+| Extraction | 8002 | **Internal:** Consumes events from RabbitMQ. |
+| Indexing | 8003 | **Internal:** Consumes events to generate embeddings and write to Qdrant. |
+| Chat | 8004 | **Internal:** Manages conversation state and orchestrates RAG flow. |
+| Retrieval | 8005 | **Internal:** Queries the VectorDB(Qdrant) for relevant document chunks.. |
+
 
 
 
@@ -172,6 +174,7 @@ This stack outlines the dependencies for the two critical microservices responsi
 |  | **beautifulsoup4** | 4.13.0 **Latest** | HTML/XML Parser: Typically used for web scraping or processing structured data like HTML/XML that may be part of the ingestion flow (though less common for raw PDF ingestion, it's a general-purpose parsing utility). |
 |  | **lxml** | 4.9.3  | XML/HTML Processor: A high-performance parser often used in conjunction with beautifulsoup4 or for handling XML/HTML data sources to be ingested. |
 |  | **urllib3** | 1.21.1 | HTTP Client Library: Provides low-level HTTP client functionality; often used as a dependency by packages like requests to manage connection pooling and retries. |
+
 
 
 
