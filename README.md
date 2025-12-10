@@ -64,6 +64,61 @@ Building a chat application that answers questions about Lancaster University’
 
 ## **The final, complete architecture diagram is maintained externally in Draw.io.**
 
+```mermaid
+graph LR
+    subgraph UserInteraction["User Layer"]
+        U["User"]
+    end
+
+    subgraph External["External Layer"]
+        API_GW["API Gateway"]
+        MARP["Lancaster MARP"]
+    end
+
+    subgraph Application["Application & RAG Layer"]
+        Chat["Chat Service"]
+        Rewriter["Query Rewriter Service"]
+        Retrieval["Retrieval Service"]
+        Orchestrator["RAG/Multi-Model Orchestrator"]
+        Auth["Auth Service"]
+    end
+
+    subgraph DataPipeline["Data Ingestion Layer"]
+        Ingest["Ingestion Service"]
+        Extract["Extraction Service"]
+        Index["Indexing Service"]
+    end
+
+    subgraph Infrastructure["Infrastructure Layer"]
+        VectorDB["Vector DB (Qdrant)"]
+        Broker{{"Event Broker (RabbitMQ)"}}
+        DB["User DB (PostgreSQL)"]
+        LLM["LLM APIs (External)"]
+    end
+
+    %% Flow 1: RAG Query (Synchronous via REST)
+    U -- "API Request" --> API_GW
+    API_GW --> Chat
+    API_GW --> Auth
+    Auth <--> DB
+    Chat --> Rewriter
+    Rewriter --> Retrieval
+    Retrieval -->|"Queries Vectors"| VectorDB
+    Retrieval -- "Chunks Retrieved" --> Orchestrator
+    Orchestrator -->|"LLM Calls"| LLM
+    Orchestrator -- "Answer Generated" --> Chat
+    Chat -- "Final Response" --> API_GW
+    API_GW --> U
+
+    %% Flow 2: Document Ingestion (Asynchronous via EDA)
+    MARP --> Ingest
+    Ingest -->|"Event: Doc Discovered"| Broker
+    Broker -->|Event| Extract
+    Extract -->|"Event: Doc Extracted"| Broker
+    Broker -->|Event| Index
+    Index -->|"Writes Embeddings"| VectorDB
+```
+
 **Please paste the public link or image markdown for your Draw.io diagram immediately below this line:**
 
 [https://drive.google.com/file/d/1GVf\_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing](https://drive.google.com/file/d/1GVf_S1b8M28ZETZ2Z4B94uoLGt74oon3/view?usp=sharing)
@@ -331,3 +386,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
