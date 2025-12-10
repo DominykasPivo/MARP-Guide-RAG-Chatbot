@@ -62,7 +62,7 @@ Building a chat application that answers questions about Lancaster University’
 
 ## **3\. High Level Architecture Overview**
 
-## **The final, complete architecture diagram is maintained externally in Draw.io.
+The final, complete architecture diagram is maintained externally in Draw.io.
 
 
 
@@ -388,6 +388,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
