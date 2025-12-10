@@ -358,19 +358,9 @@ For detailed architecture documentation, see:
 
 ---
 
-## **10\. Contributing**
+## **10\. Contributers**
 
-Contributions are welcome! Please:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with tests
-4. Run the test suite (`pytest`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-The CI pipeline will automatically run tests and build checks on your PR.
 
 ---
 
@@ -386,6 +376,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
