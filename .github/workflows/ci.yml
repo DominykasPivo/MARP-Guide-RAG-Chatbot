@@ -106,9 +106,9 @@ jobs:
           name: test-coverage-${{ matrix.python-version }}-${{ github.run_number }}
           path: coverage/unit.xml
 
-        - name: Upload HTML coverage report (unit)
-          uses: actions/upload-artifact@v4
-          with:
+      - name: Upload HTML coverage report (unit)
+        uses: actions/upload-artifact@v4
+        with:
             name: test-coverage-html-unit-${{ matrix.python-version }}-${{ github.run_number }}
             path: coverage/unit_html
 
