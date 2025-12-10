@@ -47,6 +47,6 @@ This workflow is a single, **blocking chain of REST calls** responsible for reli
 
 ### **Network Communication Summary**
 
-* **API Gateway (Port 8000):** Only public-facing service. Uses **REST (HTTP/S)** for external communication.  
-* **Internal Microservices:** Communicate exclusively via **REST (HTTP)** for both chat and document processing.  
+* **API Gateway (Port 8000):** Only public-facing service. Uses **REST (HTTP/S)** for external communication.
+* **Internal Microservices:** Communicate exclusively via **REST (HTTP)** for both chat and document processing.
 * **Databases:** Accessed directly by the services responsible for managing their data.

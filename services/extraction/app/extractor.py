@@ -26,8 +26,8 @@ class PDFExtractor:
         try:
             mime_type = magic.from_file(file_path, mime=True)
             if not isinstance(mime_type, str):
-                mime_type = str(mime_type)
-            return mime_type
+                return str(mime_type)
+            return str(mime_type)
         except Exception as e:
             logger.error(f"Failed to check file type: {str(e)}")
             raise

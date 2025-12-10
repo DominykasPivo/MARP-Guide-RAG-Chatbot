@@ -22,8 +22,9 @@ class ChatRequestModel(BaseModel):
 # Configure logging
 
 logger = logging.getLogger("chat")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     stream=sys.stdout,
 )
@@ -39,6 +40,7 @@ if os.path.exists(static_dir):
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", f"amqp://guest:guest@{RABBITMQ_HOST}:5672/")
 RETRIEVAL_SERVICE_URL = os.getenv("RETRIEVAL_SERVICE_URL", "http://retrieval:8000")
+API_TIMEOUT = int(os.getenv("API_TIMEOUT", "30"))
 
 # Multiple FREE LLM models to use for parallel generation
 LLM_MODELS = os.getenv(
@@ -87,7 +89,9 @@ async def get_chunks_via_http_async(query: str):
         )
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{RETRIEVAL_SERVICE_URL}/query", json={"query": query}, timeout=30.0
+                f"{RETRIEVAL_SERVICE_URL}/query",
+                json={"query": query},
+                timeout=float(API_TIMEOUT),
             )
         if response.status_code == 200:
             data = response.json()

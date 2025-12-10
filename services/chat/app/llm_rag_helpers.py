@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from typing import List, Tuple
 
@@ -7,6 +8,14 @@ import httpx
 from models import Chunk, Citation, LLMResponse
 
 logger = logging.getLogger("chat.llm_rag_helpers")
+
+# LLM Configuration from environment
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2000"))
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "60"))
+OPENROUTER_API_URL = os.getenv(
+    "OPENROUTER_API_URL", "https://openrouter.ai/api/v1/chat/completions"
+)
 
 # The System Instruction guides the LLM to use the context and avoid
 # hallucination.
@@ -52,8 +61,8 @@ async def generate_answer_with_citations_async(
     payload = {
         "model": model,
         "messages": messages,
-        "max_tokens": 2000,
-        "temperature": 0.7,
+        "max_tokens": LLM_MAX_TOKENS,
+        "temperature": LLM_TEMPERATURE,
     }
     answer = ""
 
@@ -63,10 +72,10 @@ async def generate_answer_with_citations_async(
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
+                    OPENROUTER_API_URL,
                     headers=headers,
                     json=payload,
-                    timeout=60.0,
+                    timeout=float(LLM_TIMEOUT),
                 )
 
                 # Handle 429 rate limit errors - retry automatically

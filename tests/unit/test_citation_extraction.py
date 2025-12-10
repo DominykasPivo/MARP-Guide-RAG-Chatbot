@@ -1,3 +1,12 @@
+"""
+Unit tests for extraction service event structures.
+
+NOTE: Comprehensive PDF extraction business logic tests (text extraction,
+metadata, cleaning, error handling) are in test_extraction.py.
+
+This file focuses on extraction service event structures and correlation ID propagation.
+"""
+
 import sys
 from unittest.mock import MagicMock
 
@@ -12,6 +21,7 @@ sys.modules["magic"] = mock_magic
 
 
 def create_valid_pdf(path):
+    """Create a minimal valid PDF for testing."""
     writer = PdfWriter()
     writer.add_blank_page(width=72, height=72)
     with open(path, "wb") as f:
@@ -19,7 +29,7 @@ def create_valid_pdf(path):
 
 
 def test_pdfextractor_extract_metadata(tmp_path):
-    # Create a valid dummy PDF file
+    """Basic metadata extraction test."""
     dummy_pdf = tmp_path / "test.pdf"
     create_valid_pdf(dummy_pdf)
     source_url = "http://example.com/test.pdf"
@@ -32,16 +42,9 @@ def test_pdfextractor_extract_metadata(tmp_path):
     }
 
 
-# ============ Additional Extraction Service Tests ============
-
-
-class TestPDFExtractorBasics:
-    """Test basic PDF extraction functionality."""
-
-    def test_pdf_extractor_initialization(self):
-        """Test PDFExtractor initialization."""
-        extractor = PDFExtractor()
-        assert extractor is not None
+# ============================================================================
+# EXTRACTION EVENT STRUCTURE TESTS
+# ============================================================================
 
 
 class TestExtractionEvents:

@@ -1,4 +1,4 @@
-# **Product Backlog: Chat AI Application** 
+# **Product Backlog: Chat AI Application**
 
 This backlog contains all known features, user stories, and technical debt required to complete the project, prioritized from highest to lowest.
 
@@ -15,8 +15,8 @@ This backlog contains all known features, user stories, and technical debt requi
 
 # **Sprint 1 Log: Core Infrastructure and RAG Foundation**
 
-* **Sprint Goal:** Functional core system with basic RAG capability, microservices architecture, event-driven design, and comprehensive documentation.  
-* **Duration:** 5 Weeks  
+* **Sprint Goal:** Functional core system with basic RAG capability, microservices architecture, event-driven design, and comprehensive documentation.
+* **Duration:** 5 Weeks
 * **Team Capacity:** 3
 
 | Item ID | Description | Backlog Item | Status | Notes |
@@ -34,11 +34,11 @@ This backlog contains all known features, user stories, and technical debt requi
 
 ## **1\. What Went Well?**
 
-* **Docker Setup:** Getting the full stack running with docker-compose up on the first try was a huge win. The time spent defining the service network was worth it.  
-* **Microservice Isolation:** The Flask service separation is clean. Each service (e.g., Orchestrator) knows its job and doesn't interfere with others.  
+* **Docker Setup:** Getting the full stack running with docker-compose up on the first try was a huge win. The time spent defining the service network was worth it.
+* **Microservice Isolation:** The Flask service separation is clean. Each service (e.g., Orchestrator) knows its job and doesn't interfere with others.
 * **API Client Wrappers:** Creating simple, dedicated wrappers for the external LLM API in the Orchestrator (S1-04) saved time and made the code immediately testable.
 
 ## **2\. What Could Be Improved?**
 
-* **Dependency Tracking:** We underestimated the time needed for the RetrievalService (S1-03) because it relied on the correct ChromaDB volume setup from the Docker work (S1-01). **Action:** Clearly document inter-service setup dependencies in the backlog item notes.  
-* **Sequential Testing:** We waited too long to test the end-to-end ChatService flow (S1-05). **Action:** Next sprint, prioritize setting up mock services for early integration testing (e.g., a mock AuthService).  
+* **Dependency Tracking:** We underestimated the time needed for the RetrievalService (S1-03) because it relied on the correct ChromaDB volume setup from the Docker work (S1-01). **Action:** Clearly document inter-service setup dependencies in the backlog item notes.
+* **Sequential Testing:** We waited too long to test the end-to-end ChatService flow (S1-05). **Action:** Next sprint, prioritize setting up mock services for early integration testing (e.g., a mock AuthService).

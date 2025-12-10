@@ -1,17 +1,17 @@
 # Event Catalogue
 
 ## Overview
-This Overview is for the **LZSCC.311 MARP Guide RAG Chatbot** we're building at the **LZSCC.311 Module**. it's supposed to help students find accurate answers about University rules and everything has to run as microservices with **Event-Driven Architecture (EDA).**  
-each big step in the RAG pipeline triggers an event | like when a PDF is found, or when chunks get indexed and other services can react without being directly called. that way everything's decoupled, scalable, and easier to debug. we're also encouraged to use **correlation_id** across all events so we can trace a user query or document all the way through the system.  
-overall flow:  
- ingestion -> extraction -> indexing -> retrieval -> chat  
+This Overview is for the **LZSCC.311 MARP Guide RAG Chatbot** we're building at the **LZSCC.311 Module**. it's supposed to help students find accurate answers about University rules and everything has to run as microservices with **Event-Driven Architecture (EDA).**
+each big step in the RAG pipeline triggers an event | like when a PDF is found, or when chunks get indexed and other services can react without being directly called. that way everything's decoupled, scalable, and easier to debug. we're also encouraged to use **correlation_id** across all events so we can trace a user query or document all the way through the system.
+overall flow:
+ ingestion -> extraction -> indexing -> retrieval -> chat
 
 ## Event Specifications
 
 ### `DocumentDiscovered`
-**Description:** Triggered when a new MARP PDF is found for ingestion.  
-**Produced by:** Ingestion Service  
-**Consumed by:** Extraction Service  
+**Description:** Triggered when a new MARP PDF is found for ingestion.
+**Produced by:** Ingestion Service
+**Consumed by:** Extraction Service
 
 **Schema:**
 ```json
@@ -65,9 +65,9 @@ overall flow:
 ---
 
 ### `DocumentExtracted`
-**Description:** Fired after the document text and metadata have been extracted.  
-**Produced by:** Extraction Service  
-**Consumed by:** Indexing Service  
+**Description:** Fired after the document text and metadata have been extracted.
+**Produced by:** Extraction Service
+**Consumed by:** Indexing Service
 
 **Schema:**
 ```json
@@ -128,9 +128,9 @@ overall flow:
 ---
 
 ### `ChunksIndexed`
-**Description:** Emitted when text chunks are split and transformed into vector embeddings for indexing and retrieval.  
-**Produced by:** Indexing Service  
-**Consumed by:** Retrieval Service  
+**Description:** Emitted when text chunks are split and transformed into vector embeddings for indexing and retrieval.
+**Produced by:** Indexing Service
+**Consumed by:** Retrieval Service
 
 **Schema:**
 ```json
@@ -179,7 +179,7 @@ overall flow:
 **Flow:**
 1. **Indexing Service** receives `DocumentExtracted` event with full text
 2. Service splits text into overlapping chunks
-3. Each chunk is processed through an embedding model 
+3. Each chunk is processed through an embedding model
 4. For EACH chunk, a separate `ChunksIndexed` event is published
 5. **Retrieval Service** stores each chunk and its embedding vector in a vector database (Pinecone, Weaviate, etc.)
 
@@ -190,9 +190,9 @@ overall flow:
 ---
 
 ### `QueryReceived`
-**Description:** Raised when a user submits a question to the chatbot.  
-**Produced by:** Chat Service  
-**Consumed by:** Retrieval Service  
+**Description:** Raised when a user submits a question to the chatbot.
+**Produced by:** Chat Service
+**Consumed by:** Retrieval Service
 
 **Schema:**
 ```json
@@ -231,9 +231,9 @@ overall flow:
 ---
 
 ### `ChunksRetrieved`
-**Description:** Generated when the retrieval system fetches the most relevant chunks for a query.  
-**Produced by:** Retrieval Service  
-**Consumed by:** Chat Service  
+**Description:** Generated when the retrieval system fetches the most relevant chunks for a query.
+**Produced by:** Retrieval Service
+**Consumed by:** Chat Service
 
 **Schema:**
 ```json
@@ -284,9 +284,9 @@ overall flow:
 ---
 
 ### `AnswerGenerated`
-**Description:** Produced when the chatbot generates an answer from retrieved chunks using the LLM.  
-**Produced by:** Chat Service  
-**Consumed by:** API Gateway 
+**Description:** Produced when the chatbot generates an answer from retrieved chunks using the LLM.
+**Produced by:** Chat Service
+**Consumed by:** API Gateway
 
 **Schema:**
 ```json

@@ -10,6 +10,8 @@ from retriever import get_retriever
 
 logger = logging.getLogger("retrieval")
 
+RETRIEVAL_TOP_K = int(os.getenv("RETRIEVAL_TOP_K", "5"))
+
 
 class RetrievalService:
     def __init__(self, rabbitmq_host: str = "rabbitmq"):
@@ -137,7 +139,7 @@ class RetrievalService:
             )
             start_time = time.time()
             retriever = self._ensure_retriever()
-            chunks = retriever.search(query_text, top_k=5)
+            chunks = retriever.search(query_text, top_k=RETRIEVAL_TOP_K)
             processing_time = (time.time() - start_time) * 1000
             logger.info(
                 f"⏱️ Retrieved {len(chunks)} chunks in {processing_time:.2f}ms",

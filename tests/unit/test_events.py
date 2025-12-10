@@ -8,9 +8,7 @@ from services.extraction.app.events import (
     DocumentDiscovered as ExtractionDocumentDiscovered,
 )
 from services.indexing.app.events import ChunksIndexed as IndexingChunksIndexed
-from services.indexing.app.events import (
-    DocumentExtracted,
-)
+from services.indexing.app.events import DocumentExtracted
 from services.ingestion.app.events import DocumentDiscovered
 from services.retrieval.app.retrieval_events import (
     ChunksIndexed,

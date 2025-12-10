@@ -8,13 +8,14 @@ from pika.exceptions import AMQPConnectionError
 
 logger = logging.getLogger("retrieval.rabbitmq")
 
-# Constants
+# Constants from environment
 EXCHANGE_NAME = "document_events"
-MAX_RETRIES = 5
-INITIAL_RETRY_DELAY = 1
-MAX_RETRY_DELAY = 60
+MAX_RETRIES = int(os.getenv("RABBITMQ_MAX_RETRIES", "5"))
+INITIAL_RETRY_DELAY = int(os.getenv("RABBITMQ_INITIAL_RETRY_DELAY", "1"))
+MAX_RETRY_DELAY = int(os.getenv("RABBITMQ_MAX_RETRY_DELAY", "60"))
 BACKOFF_MULTIPLIER = 2
 JITTER_RANGE = 0.1
+CONNECTION_TIMEOUT = int(os.getenv("RABBITMQ_CONNECTION_TIMEOUT", "30"))
 
 
 class EventConsumer:

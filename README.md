@@ -13,9 +13,9 @@ Building a chat application that answers questions about Lancaster University’
 
 ## **1\. Key Features**
 
-* **User Authentication:** Secure login and registration so every user has their own private chat history.  
-* **Document Ingestion Pipeline:** An event-driven workflow for reliably processing new documents (MARP PDFs) and updating the knowledge base.  
-* **Vector-Powered Memory (RAG):** The app uses a special **ChromaDB** vector database to "remember" past conversations and provide **Retrieval-Augmented Generation (RAG)** answers.  
+* **User Authentication:** Secure login and registration so every user has their own private chat history.
+* **Document Ingestion Pipeline:** An event-driven workflow for reliably processing new documents (MARP PDFs) and updating the knowledge base.
+* **Vector-Powered Memory (RAG):** The app uses a special **ChromaDB** vector database to "remember" past conversations and provide **Retrieval-Augmented Generation (RAG)** answers.
 * **Multi-Model Comparison:** Get answers from different LLMs (like GPT-4, Claude 3, etc.) for the *same question*, shown side-by-side so you can compare them.
 
 ## **2\. Technology Stack**
@@ -70,33 +70,33 @@ This guide provides the necessary steps to set up and run the entire microservic
 
 **Prerequisites:**
 
-1. **Docker:** Ensure Docker and Docker Compose (or Docker Desktop) are installed and running on your system.  
+1. **Docker:** Ensure Docker and Docker Compose (or Docker Desktop) are installed and running on your system.
 2. **Codebase:** The source code for each service must be cloned and organized into directories matching the service names (e.g., apigateway/, authservice/, ingestionservice/, etc.).
 
 ## **1\. Project Structure Verification**
 
 Before proceeding, verify that your project directory structure looks like this:
 
-/chatbot  
-|-- docker-compose.yml   \<-- The file generated above  
-|-- README.md  
-|-- /apigateway  
-|   |-- Dockerfile  
-|-- /auth  
-|   |-- Dockerfile  
-|-- /ingestion  
-|   |-- Dockerfile  
-|-- /extraction  
-|   |-- Dockerfile  
-|-- /indexing  
-|   |-- Dockerfile  
-|-- /chat  
-|   |-- Dockerfile  
-|-- /retrieval  
-|   |-- Dockerfile  
+/chatbot
+|-- docker-compose.yml   \<-- The file generated above
+|-- README.md
+|-- /apigateway
+|   |-- Dockerfile
+|-- /auth
+|   |-- Dockerfile
+|-- /ingestion
+|   |-- Dockerfile
+|-- /extraction
+|   |-- Dockerfile
+|-- /indexing
+|   |-- Dockerfile
+|-- /chat
+|   |-- Dockerfile
+|-- /retrieval
+|   |-- Dockerfile
 |-- .env (Optional, for custom configuration)
 
-## 
+##
 
 ## **2\. Launching the System**
 
@@ -172,11 +172,3 @@ This stack outlines the dependencies for the two critical microservices responsi
 |  | **beautifulsoup4** | 4.13.0 **Latest** | HTML/XML Parser: Typically used for web scraping or processing structured data like HTML/XML that may be part of the ingestion flow (though less common for raw PDF ingestion, it's a general-purpose parsing utility). |
 |  | **lxml** | 4.9.3  | XML/HTML Processor: A high-performance parser often used in conjunction with beautifulsoup4 or for handling XML/HTML data sources to be ingested. |
 |  | **urllib3** | 1.21.1 | HTTP Client Library: Provides low-level HTTP client functionality; often used as a dependency by packages like requests to manage connection pooling and retries. |
-
-
-
-
-
-
-
-

@@ -26,14 +26,14 @@
 
 ## Action Items for Sprint 2
 
-### **Action:** Create a test catalogue with 10–15 questions to verify the 90% citation accuracy requirement  
-**Owner:** Dominykas – **Deadline:** End of Week 9  
+### **Action:** Create a test catalogue with 10–15 questions to verify the 90% citation accuracy requirement
+**Owner:** Dominykas – **Deadline:** End of Week 9
 **Success:** All questions in the test catalogue run through the CI pipeline, and all citation accuracy tests pass.
 
-### **Action:** Implement Tier-2 feature  
-**Owner:** Saeid – **Deadline:** End of Week 8  
+### **Action:** Implement Tier-2 feature
+**Owner:** Saeid – **Deadline:** End of Week 8
 **Success:** Additional Tier-2 feature functional.
 
-### **Action:** Implement Tier-1 feature  
-**Owner:** Atilla – **Deadline:** End of Week 8  
+### **Action:** Implement Tier-1 feature
+**Owner:** Atilla – **Deadline:** End of Week 8
 **Success:** Additional Tier-1 feature functional.

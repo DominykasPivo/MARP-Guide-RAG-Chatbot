@@ -22,8 +22,8 @@ class Retriever:
         # Match indexing service's env var names and defaults
         self.embedding_model_name = os.getenv("EMBEDDING_MODEL", embedding_model)
         self.qdrant_host = qdrant_host or os.getenv("QDRANT_HOST", "localhost")
-        port_value: str | int | None = qdrant_port or os.getenv("QDRANT_PORT", "6333")
-        self.qdrant_port = int(port_value or 6333)
+        port_value: str | int | None = qdrant_port or os.getenv("QDRANT_PORT")
+        self.qdrant_port = int(port_value) if port_value else 6333
         self.collection_name = os.getenv("QDRANT_COLLECTION_NAME", collection_name)
 
         self.encoder = None

@@ -28,11 +28,11 @@ services:
 
 ## Key Features
 
-✅ **Parallel Processing** - All LLMs query simultaneously  
-✅ **Side-by-Side UI** - Beautiful comparison interface  
-✅ **Performance Metrics** - See generation time per model  
-✅ **Separate Citations** - Each model shows its sources  
-✅ **Error Resilient** - One model failure doesn't affect others  
+✅ **Parallel Processing** - All LLMs query simultaneously
+✅ **Side-by-Side UI** - Beautiful comparison interface
+✅ **Performance Metrics** - See generation time per model
+✅ **Separate Citations** - Each model shows its sources
+✅ **Error Resilient** - One model failure doesn't affect others
 
 ## API Response Format
 
