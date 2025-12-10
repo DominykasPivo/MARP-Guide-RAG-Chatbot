@@ -49,13 +49,10 @@ LLM_MODELS = os.getenv(
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 # Log configured models (not API key)
-try:
-    _models_preview = [m.strip() for m in LLM_MODELS if m.strip()]
-    logger.info(f"🧩 Configured LLM models: {_models_preview}")
-    if not OPENROUTER_API_KEY:
-        logger.warning("⚠️ OPENROUTER_API_KEY is not set; LLM calls will fail.")
-except Exception:
-    pass
+_models_preview = [m.strip() for m in LLM_MODELS if m.strip()]
+logger.info(f"🧩 Configured LLM models: {_models_preview}")
+if not OPENROUTER_API_KEY:
+    logger.warning("⚠️ OPENROUTER_API_KEY is not set; LLM calls will fail.")
 
 
 def filter_top_citations(
