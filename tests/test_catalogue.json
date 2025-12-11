@@ -1,0 +1,145 @@
+[
+  {
+    "query": "What do Academic Standards and Quality Committee (ASQC) oversight?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Intro-to-MARP.pdf",
+        "page": 3
+      }
+    ]
+  },
+  {
+    "query": "Why are departments required to use the on-line Lancaster University Module Evaluation Survey (LUMES)?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Intro-to-MARP.pdf",
+        "page": 3
+      }
+    ]
+  },
+  {
+    "query": "What is MARP?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Intro-to-MARP.pdf",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "query": "What happens if I fail a module on my postgraduate course?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/General-Regs.pdf",
+        "page": 7
+      }
+    ]
+  },
+  {
+    "query": "What are the penalties for late submission?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/General-Regs.pdf",
+        "page": 8
+      }
+    ]
+  },
+  {
+    "query": "How is my final degree classification calculated?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Admissions.pdf",
+        "page": 4
+      }
+    ]
+  },
+  {
+    "query": "How many credits are required for a standard Masters degree?",
+    "expected_citations": [
+      {
+        "url": "",
+        "page": 4
+      }
+    ]
+  },
+  {
+    "query": "How many credits are required for a standard Masters degree?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf",
+        "page": 8
+      }
+    ]
+  },
+  {
+    "query": "What happens if I’m excluded for failing?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/UG-Assess-Regs.pdf",
+        "page": 20
+      }
+    ]
+  },
+  {
+    "query": "Can I use AI to help with my assignments?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf",
+        "page": 5
+      }
+    ]
+  },
+  {
+    "query": "Can I appeal my degree classification?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Appeals.pdf",
+        "page": 2
+    }
+    ]
+ },
+ {
+    "query": "What counts as \"exceptional circumstances\"?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/General-Regs.pdf",
+        "page": 16
+    }
+    ]
+ },
+ {
+    "query": "What are the degree classification boundaries?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/MARP-2025-PGT-Assess-Regs.pdf",
+        "page": 16
+    }
+    ]
+ },
+ {
+    "query": "What happens if I’m borderline between degree classes?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/MARP-2025-PGT-Assess-Regs.pdf",
+        "page": 16
+    }
+    ]
+ },
+ {
+    "query": "Who can I bring with me to an academic misconduct hearing?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf  ",
+        "page": 8
+    },
+    {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf  ",
+        "page": 9
+    },
+    {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf  ",
+        "page": 18
+    }
+    ]
+ }
+]
