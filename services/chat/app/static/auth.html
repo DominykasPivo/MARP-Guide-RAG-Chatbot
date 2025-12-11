@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Re-using the Adjusted Dark Theme Variables */
         :root {
             --bg-primary: #121212;
             --bg-secondary: rgba(255, 255, 255, 0.03);
@@ -45,7 +44,6 @@
             padding: var(--spacing-lg);
         }
 
-        /* --- Auth Card Styles --- */
         .auth-card {
             width: 100%;
             max-width: 450px;
@@ -65,7 +63,6 @@
             text-align: center;
         }
 
-        /* --- Tabs --- */
         .tab-selector {
             display: flex;
             background: var(--bg-secondary);
@@ -88,12 +85,11 @@
         }
 
         .tab-selector button.active {
-            background: var(--bg-primary); /* Darker background for active tab */
+            background: var(--bg-primary);
             color: var(--text-primary);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
         }
         
-        /* --- Form Elements --- */
         .form-group {
             margin-bottom: var(--spacing-md);
         }
@@ -123,7 +119,6 @@
             background: rgba(255, 255, 255, 0.05);
         }
         
-        /* --- Button --- */
         .submit-button {
             width: 100%;
             padding: var(--spacing-sm) var(--spacing-xl);
@@ -150,14 +145,13 @@
             cursor: not-allowed;
         }
 
-        /* --- Message Box --- */
         #messageBox {
             padding: var(--spacing-sm);
             border-radius: 12px;
             margin-top: var(--spacing-md);
             text-align: center;
             font-size: 14px;
-            min-height: 40px; /* Reserve space */
+            min-height: 40px;
             transition: all 0.4s var(--easing);
         }
         
@@ -220,7 +214,8 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'http://localhost:8006'; // Must match your FastAPI port
+        const API_BASE_URL = 'http://localhost:8006';
+        const CHAT_URL = '/static/index.html';  // Changed to relative path
 
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
@@ -228,10 +223,6 @@
         const registerTab = document.getElementById('registerTab');
         const messageBox = document.getElementById('messageBox');
 
-        /**
-         * Switches between the Login and Register forms.
-         * @param {string} formType - 'login' or 'register'.
-         */
         function showForm(formType) {
             if (formType === 'login') {
                 loginForm.style.display = 'block';
@@ -247,32 +238,20 @@
             clearMessage();
         }
 
-        /**
-         * Displays a temporary status message (success or error).
-         * @param {string} message - The message text.
-         * @param {string} type - 'success' or 'error'.
-         */
         function displayMessage(message, type) {
             messageBox.textContent = message;
             messageBox.className = type;
             messageBox.classList.remove('hidden');
-
             setTimeout(clearMessage, 5000);
         }
         
         function clearMessage() {
             messageBox.classList.add('hidden');
-            // Allow for CSS transition to complete before removing classes
             setTimeout(() => {
                 messageBox.className = '';
             }, 400);
         }
 
-        /**
-         * Handles the form submission for both login and register.
-         * @param {Event} event - The form submission event.
-         * @param {string} endpoint - 'login' or 'register'.
-         */
         async function handleAuth(event, endpoint) {
             event.preventDefault();
             clearMessage();
@@ -293,41 +272,43 @@
             submitButton.textContent = 'Processing...';
 
             try {
+                console.log('Attempting to connect to:', `${API_BASE_URL}/${endpoint}`);
+                
                 const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
                     method: 'POST',
+                    mode: 'cors',  // Explicitly enable CORS
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ username, password }),
                 });
 
-                const data = await response.json();
+                console.log('Response status:', response.status);
 
                 if (!response.ok) {
+                    const data = await response.json();
                     const detail = data.detail || 'An unknown error occurred.';
                     throw new Error(detail);
                 }
 
+                const data = await response.json();
+
                 if (endpoint === 'register') {
                     displayMessage("Registration successful! You can now log in.", 'success');
-                    // Optionally switch to login form after successful registration
                     showForm('login');
-                    // Clear the register form
                     usernameInput.value = '';
                     passwordInput.value = '';
                 } else if (endpoint === 'login') {
                     const userId = data.user_id;
                     if (userId) {
-                        // CRITICAL: Save the user_id to local storage
                         localStorage.setItem('marp_user_id', userId);
                         localStorage.setItem('marp_username', username);
                         
                         displayMessage(`Login successful! Redirecting...`, 'success');
                         
-                        // *** REDIRECT TO INDEX.HTML AFTER SUCCESSFUL LOGIN ***
                         setTimeout(() => {
-                            window.location.href = 'index.html'; 
-                        }, 1000); // Redirect after a short delay to display the success message
+                            window.location.href = CHAT_URL;
+                        }, 1000);
                         
                     } else {
                         throw new Error("Login succeeded but User ID was not returned.");
@@ -335,9 +316,15 @@
                 }
 
             } catch (error) {
-                const errorMessage = error.message || "Network Error: Could not connect to the API. Check if your FastAPI server is running on port 8006 and CORS is configured.";
+                console.error('Full error details:', error);
+                let errorMessage = "Network Error: Could not connect to the auth service. ";
+                errorMessage += "Make sure the auth service is running on port 8006.";
+                
+                if (error.message && !error.message.includes('Failed to fetch')) {
+                    errorMessage = error.message;
+                }
+                
                 displayMessage(errorMessage, 'error');
-                console.error('Auth Error:', error);
 
             } finally {
                 submitButton.disabled = false;
@@ -345,15 +332,13 @@
             }
         }
         
-        // Check for existing session on load
         window.onload = () => {
             const userId = localStorage.getItem('marp_user_id');
             const username = localStorage.getItem('marp_username');
             if (userId && username) {
-                // If the user is already logged in, redirect them immediately
                 displayMessage(`Session found for ${username}. Redirecting...`, 'success');
                 setTimeout(() => {
-                    window.location.href = 'index.html';
+                    window.location.href = CHAT_URL;
                 }, 1000);
             }
         };

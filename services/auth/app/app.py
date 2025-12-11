@@ -3,7 +3,7 @@ import bcrypt
 import os
 from typing import Optional, Annotated, Union 
 from fastapi import FastAPI, HTTPException, status, Header
-from fastapi.middleware.cors import CORSMiddleware # <<< ADDED: CORS Import
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import logging
 import sys
@@ -12,7 +12,7 @@ import sys
 DB_NAME = os.environ.get("POSTGRES_DB", "mydb")
 DB_USER = os.environ.get("POSTGRES_USER", "postgres_user")
 DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "mysecretpassword")
-DB_HOST = os.environ.get("POSTGRES_HOST", "localhost")
+DB_HOST = os.environ.get("POSTGRES_HOST", "postgres")
 DB_PORT = os.environ.get("POSTGRES_PORT", "5432")
 
 logging.basicConfig(
@@ -25,36 +25,27 @@ logger = logging.getLogger('auth')
 # --- FastAPI Setup ---
 app = FastAPI(title="MARP Authentication Service", version="1.0.0")
 
-# *** CORS CONFIGURATION (Fixes "Network Error: Could not connect to the API" from local HTML file) ***
-origins = [
-    "http://localhost",
-    "http://localhost:8006", # Must match the port Docker exposes
-    "http://localhost:8080",  # <<< NEW: Allows connections from the local web server
-    "null", # CRITICAL: Allows local files (file:///) to connect to the API
-]
-
+# ✅ CORS MUST BE ENABLED - Browser requires it for cross-origin requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # In production, specify exact origins like ["http://localhost:8005"]
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*", "User-Id"], # Allows the custom User-Id header from the frontend
+    allow_headers=["*"],
 )
-# ---------------------------------------------------------------------------------------------------
 
-db_manager = None # Global variable to hold the database connection
+db_manager = None
 
-# Pydantic Models for Request Body Validation
+# Pydantic Models
 class UserAuth(BaseModel):
     username: str
     password: str
 
-# Pydantic Model for Chat Request Body
 class ChatQuery(BaseModel):
     query: str
 
 
-# --- Database Manager (Cleaned and Updated) ---
+# --- Database Manager ---
 class DatabaseManager:
     def __init__(self):
         try:
@@ -78,34 +69,40 @@ class DatabaseManager:
             self.conn.close()
 
     def create_tables(self):
-        """Creates the users and chat_history tables."""
-        if not self.cursor: return
+        if not self.cursor: 
+            return
         try:
-            # 1. Users Table
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username VARCHAR(50) UNIQUE NOT NULL,
-                    hashed_password TEXT NOT NULL
+                    hashed_password TEXT NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
             """)
             
-            # 2. Chat History Table
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS chat_history (
                     id SERIAL PRIMARY KEY,
                     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    role VARCHAR(10) NOT NULL, -- 'user' or 'assistant'
+                    role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'assistant')),
                     content TEXT NOT NULL,
                     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            
+            self.cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chat_history_user_id 
+                ON chat_history(user_id, timestamp DESC);
+            """)
+            
             logger.info("Tables 'users' and 'chat_history' ensured to exist.")
         except Exception as e:
-            logger.error(f"Error creating table: {e}")
+            logger.error(f"Error creating tables: {e}")
 
     def get_user(self, username: str) -> Optional[tuple]:
-        if not self.cursor: return None
+        if not self.cursor: 
+            return None
         try:
             self.cursor.execute(
                 "SELECT id, username, hashed_password FROM users WHERE username = %s;",
@@ -116,55 +113,9 @@ class DatabaseManager:
             logger.error(f"Error fetching user: {e}")
             return None
 
-    def insert_user(self, username: str, hashed_password: bytes) -> bool:
-        if not self.cursor: return False
-        try:
-            # Store hash as string
-            self.cursor.execute(
-                "INSERT INTO users (username, hashed_password) VALUES (%s, %s);",
-                (username, hashed_password.decode('utf-8'))
-            )
-            return True
-        except psycopg2.errors.UniqueViolation:
-            return False
-        except Exception as e:
-            logger.error(f"Error inserting user: {e}")
-            return False
-
-    def save_message(self, user_id: int, role: str, content: str) -> bool:
-        """Saves a message (query or response) to the history."""
-        if not self.cursor: return False
-        try:
-            self.cursor.execute(
-                "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s);",
-                (user_id, role, content)
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error saving chat message for user {user_id}: {e}")
-            return False
-
-    def get_history(self, user_id: int, limit: int = 10) -> list[tuple]:
-        """Retrieves the last 'limit' messages for a user."""
-        if not self.cursor: return []
-        try:
-            self.cursor.execute(
-                """
-                SELECT role, content FROM chat_history
-                WHERE user_id = %s
-                ORDER BY timestamp DESC
-                LIMIT %s;
-                """,
-                (user_id, limit)
-            )
-            # Reverse the list so the conversation is chronological
-            return self.cursor.fetchall()[::-1]
-        except Exception as e:
-            logger.error(f"Error fetching chat history for user {user_id}: {e}")
-            return []
-    
     def get_user_by_id(self, user_id: int) -> Optional[tuple]:
-        if not self.cursor: return None
+        if not self.cursor: 
+            return None
         try:
             self.cursor.execute(
                 "SELECT id, username FROM users WHERE id = %s;",
@@ -175,109 +126,284 @@ class DatabaseManager:
             logger.error(f"Error fetching user by ID: {e}")
             return None
 
-# --- FastAPI Events (Database connection management) ---
+    def insert_user(self, username: str, hashed_password: bytes) -> Optional[int]:
+        if not self.cursor: 
+            return None
+        try:
+            self.cursor.execute(
+                "INSERT INTO users (username, hashed_password) VALUES (%s, %s) RETURNING id;",
+                (username, hashed_password.decode('utf-8'))
+            )
+            result = self.cursor.fetchone()
+            return result[0] if result else None
+        except psycopg2.errors.UniqueViolation:
+            logger.warning(f"Username '{username}' already exists")
+            return None
+        except Exception as e:
+            logger.error(f"Error inserting user: {e}")
+            return None
 
+    def save_message(self, user_id: int, role: str, content: str) -> bool:
+        if not self.cursor: 
+            return False
+        try:
+            self.cursor.execute(
+                "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s);",
+                (user_id, role, content)
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Error saving chat message for user {user_id}: {e}")
+            return False
+
+    def get_history(self, user_id: int, limit: int = 10) -> list:
+        if not self.cursor: 
+            return []
+        try:
+            self.cursor.execute(
+                """
+                SELECT role, content, timestamp FROM chat_history
+                WHERE user_id = %s
+                ORDER BY timestamp DESC
+                LIMIT %s;
+                """,
+                (user_id, limit)
+            )
+            return self.cursor.fetchall()[::-1]
+        except Exception as e:
+            logger.error(f"Error fetching chat history for user {user_id}: {e}")
+            return []
+    
+    def clear_history(self, user_id: int) -> bool:
+        if not self.cursor: 
+            return False
+        try:
+            self.cursor.execute(
+                "DELETE FROM chat_history WHERE user_id = %s;",
+                (user_id,)
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing chat history for user {user_id}: {e}")
+            return False
+
+
+# --- FastAPI Events ---
 @app.on_event("startup")
 def startup_event():
-    """Initializes the database connection manager."""
     global db_manager
     db_manager = DatabaseManager()
+    logger.info("Auth service started successfully")
 
 @app.on_event("shutdown")
 def shutdown_event():
-    """Closes the database connection gracefully."""
     if db_manager:
         db_manager.close()
+        logger.info("Auth service shutdown complete")
+
 
 # --- API Endpoints ---
 
 @app.get("/health")
 def health_check():
-    """Checks the application status and database connection."""
     if db_manager and db_manager.cursor:
-        return {"status": "ok", "database": "connected"}
+        return {
+            "status": "ok", 
+            "service": "auth-service",
+            "database": "connected",
+            "version": "1.0.0"
+        }
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+        detail="Database not available"
+    )
+
+
+@app.get("/verify/{user_id}")
+def verify_user_endpoint(user_id: int):
+    """Verify if user exists (for other services to check)"""
+    if not db_manager or not db_manager.cursor:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Database not available"
+        )
     
-    # Returning a 503 for Service Unavailable if the database is down
-    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
-                        detail="Database not available")
+    user_data = db_manager.get_user_by_id(user_id)
+    
+    if user_data:
+        return {
+            "exists": True, 
+            "user_id": user_data[0],
+            "username": user_data[1]
+        }
+    else:
+        return {"exists": False}
 
 
 @app.post("/register", status_code=status.HTTP_201_CREATED)
 def register_endpoint(user: UserAuth):
-    """Registers a new user."""
+    """Register a new user"""
     if not db_manager or not db_manager.cursor:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database not available")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Database not available"
+        )
     
-    # Hash password
+    if len(user.username) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Username must be at least 3 characters"
+        )
+    
+    if len(user.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Password must be at least 6 characters"
+        )
+    
     salt = bcrypt.gensalt(12)
     hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), salt)
 
-    if db_manager.insert_user(user.username, hashed_password):
-        return {"message": "User registered successfully"}
+    user_id = db_manager.insert_user(user.username, hashed_password)
+    
+    if user_id:
+        logger.info(f"New user registered: {user.username} (ID: {user_id})")
+        return {
+            "message": "User registered successfully", 
+            "user_id": user_id,
+            "username": user.username
+        }
     else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Registration failed. Username might exist.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Registration failed. Username already exists."
+        )
+
 
 @app.post("/login")
 def login_endpoint(user: UserAuth):
-    """Authenticates a user."""
+    """Login user - returns user_id for session management"""
     if not db_manager or not db_manager.cursor:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database not available")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Database not available"
+        )
 
     user_data = db_manager.get_user(user.username)
+    
     if not user_data:
-        # Generic error message for security
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid username or password"
+        )
 
     user_id, stored_username, stored_hash_text = user_data
     
-    # Verify password
     if bcrypt.checkpw(user.password.encode('utf-8'), stored_hash_text.encode('utf-8')):
-        return {"message": "Login successful", "user_id": user_id}
+        logger.info(f"User logged in: {stored_username} (ID: {user_id})")
+        return {
+            "message": "Login successful", 
+            "user_id": user_id,
+            "username": stored_username
+        }
     else:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
-    
-# --- Chat History Endpoint ---
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid username or password"
+        )
 
-@app.post("/chat")
-async def chat_endpoint(
-    request: ChatQuery,
-    # Reads the custom header 'user-id' from the request
-    user_id_header: Annotated[Union[str, None], Header(alias="user-id")] = None 
+
+@app.get("/history")
+def get_history_endpoint(
+    user_id_header: Annotated[Union[str, None], Header(alias="user-id")] = None,
+    limit: int = 10
 ):
-    """
-    Handles a chat query, retrieves user history, and saves the new message.
-    """
+    """Get chat history for a user (optional feature)"""
     if not db_manager or not db_manager.cursor:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database not available")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Database not available"
+        )
     
-    # 1. READ AND VALIDATE USER ID
     try:
         user_id = int(user_id_header)
     except (TypeError, ValueError):
-        # Return 401 if the user ID is missing or not a valid number
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid 'User-Id' header.")
-        
-    user_query = request.query
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Missing or invalid 'User-Id' header."
+        )
     
-    # 2. RETRIEVE HISTORY (last 5 messages)
-    history = db_manager.get_history(user_id, limit=5)
-    
-    # 3. CONSTRUCT CONTEXT for LLM
-    # The frontend is sending the ID, but we should quickly check if the user exists
     if not db_manager.get_user_by_id(user_id):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
-        
-    context_messages = [f"{role.capitalize()}: {content}" for role, content in history]
-    context = "\n".join(context_messages)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="User not found."
+        )
     
-    # This is the full prompt your actual LLM/RAG system would use
-    llm_prompt = f"Previous conversation context:\n{context}\n\nUser's new question: {user_query}"
-
-    # 4. SIMULATE LLM RESPONSE (***REPLACE THIS WITH YOUR ACTUAL LLM/RAG CALL***)
-    bot_response = f"Response for user {user_id}. You asked: '{user_query}'. History used: {len(history)} messages."
+    history = db_manager.get_history(user_id, limit=limit)
     
-    # 5. SAVE NEW INTERACTION
-    db_manager.save_message(user_id, "user", user_query)
-    db_manager.save_message(user_id, "assistant", bot_response)
+    return {
+        "user_id": user_id,
+        "history": [
+            {"role": role, "content": content, "timestamp": str(timestamp)}
+            for role, content, timestamp in history
+        ]
+    }
 
-    return {"response": bot_response}
+
+@app.delete("/history")
+def clear_history_endpoint(
+    user_id_header: Annotated[Union[str, None], Header(alias="user-id")] = None
+):
+    """Clear chat history for a user"""
+    if not db_manager or not db_manager.cursor:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Database not available"
+        )
+    
+    try:
+        user_id = int(user_id_header)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Missing or invalid 'User-Id' header."
+        )
+    
+    if not db_manager.get_user_by_id(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="User not found."
+        )
+    
+    if db_manager.clear_history(user_id):
+        logger.info(f"Chat history cleared for user {user_id}")
+        return {"message": "Chat history cleared successfully"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to clear chat history"
+        )
+
+
+@app.post("/save-chat")
+async def save_chat_endpoint(
+    request: ChatQuery,
+    user_id_header: Annotated[Union[str, None], Header(alias="user-id")] = None 
+):
+    """Save a chat message (called by chat service optionally)"""
+    if not db_manager or not db_manager.cursor:
+        return {"saved": False, "error": "Database not available"}
+    
+    try:
+        user_id = int(user_id_header)
+    except (TypeError, ValueError):
+        return {"saved": False, "error": "Invalid user ID"}
+    
+    if db_manager.save_message(user_id, "user", request.query):
+        return {"saved": True}
+    return {"saved": False}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

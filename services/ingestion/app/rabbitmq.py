@@ -124,22 +124,19 @@ class EventPublisher:
             bool: True if message was published successfully,
                  False otherwise
         """
+        # Use explicitly provided correlation_id or fall back to event's correlationId
+        final_correlation_id = correlation_id or event.correlationId
+        
         # Convert event to dictionary
-
         event_data = {
             "eventType": event.eventType,
             "eventId": event.eventId,
             "timestamp": event.timestamp,
-            "correlationId": event.correlationId,
+            "correlationId": final_correlation_id,  # Use final_correlation_id
             "source": event.source,
             "version": event.version,
             "payload": event.payload,
         }
-
-        # Use explicitly provided correlation_id if given, otherwise use the
-        # one from the event
-        if correlation_id:
-            event_data["correlation_id"] = correlation_id
 
         for attempt in range(MAX_RETRIES):
             try:
@@ -155,9 +152,7 @@ class EventPublisher:
                     routing_key=event_type.value,  # Use event_type value as routing key
                     body=json.dumps(event_data),
                     properties=pika.BasicProperties(
-                        correlation_id=event_data[
-                            "correlation_id"
-                        ],  # Use the same correlation ID
+                        correlation_id=final_correlation_id,  # Use final_correlation_id
                         delivery_mode=2,  # Make message persistent
                         content_type="application/json",
                     ),
@@ -165,7 +160,7 @@ class EventPublisher:
                 logger.info(
                     "Successfully published event",
                     extra={
-                        "correlation_id": correlation_id,
+                        "correlation_id": final_correlation_id,
                         "event_type": event_type.value,
                         "routing_key": event_type.value,
                     },
@@ -181,7 +176,7 @@ class EventPublisher:
                         f"Retrying in {wait_time:.2f} seconds... "
                         f"Error: {str(e)}",
                         extra={
-                            "correlation_id": correlation_id,
+                            "correlation_id": final_correlation_id,
                             "event_type": event_type.value,
                             "attempt": attempt + 1,
                             "wait_time": wait_time,
@@ -193,7 +188,7 @@ class EventPublisher:
                     logger.error(
                         f"Failed to publish event after {MAX_RETRIES} attempts",
                         extra={
-                            "correlation_id": correlation_id,
+                            "correlation_id": final_correlation_id,
                             "event_type": event_type.value,
                             "error": str(e),
                             "total_attempts": MAX_RETRIES,

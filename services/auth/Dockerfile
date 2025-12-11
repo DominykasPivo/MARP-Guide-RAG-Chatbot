@@ -19,9 +19,9 @@ COPY app/ .
 # Expose the port that the application listens on
 EXPOSE 8000
 
-# Add healthcheck
+# Add healthcheck (use port 8000 inside container!)
 HEALTHCHECK --interval=30s --timeout=3s \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
+# Run the application (fixed: app.app) and port 8000)
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

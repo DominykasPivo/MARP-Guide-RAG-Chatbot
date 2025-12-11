@@ -8,7 +8,7 @@ import httpx
 from events import publish_query_received_event
 from consumers import start_consumer_thread
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from llm_rag_helpers import generate_answers_parallel
 from models import ChatResponse, Chunk, Citation, LLMResponse
@@ -31,10 +31,13 @@ logging.basicConfig(
 
 app = FastAPI(title="MARP Chat Service", version="1.0.0")
 
-# Mount static files
-static_dir = os.path.join(os.path.dirname(__file__), "static")
+# Mount static files - use absolute path for Docker
+static_dir = "/app/static"
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    logger.info(f"✅ Static files mounted from {static_dir}")
+else:
+    logger.warning(f"⚠️ Static directory not found: {static_dir}")
 
 # Environment variables
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
@@ -136,15 +139,19 @@ async def get_chunks_via_http_async(query: str):
 
 
 @app.get("/")
-async def index():
-    """Serve the main UI page"""
-    static_file = os.path.join(
-        os.path.dirname(__file__), "static", "index.html"
-    )
+async def root():
+    """Redirect to auth page"""
+    return RedirectResponse(url="/static/auth.html")
+
+
+@app.get("/chat-ui")
+async def chat_ui():
+    """Serve the chat UI page"""
+    static_file = "/app/static/index.html"
     if os.path.exists(static_file):
         return FileResponse(static_file)
     return {
-        "message": "UI not available. Access /chat endpoint directly."
+        "message": "Chat UI not available. Access /chat endpoint directly."
     }
 
 

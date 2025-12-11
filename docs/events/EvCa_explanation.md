@@ -51,7 +51,6 @@ This file provides detailed explanations for each event in the EvCA.json catalog
     - services/retrieval/app/consumers.py (tracking/logging only)
 - **Why Used:** Enables monitoring, logging, and analytics of retrieval performance without blocking the HTTP response. Runs in background thread to ensure immediate response to chat service while still capturing metrics for observability and debugging.
 
----
 
 ## Event Architecture Notes
 
