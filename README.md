@@ -86,7 +86,7 @@ For local development without Docker:
 
 ---
 
-📖 **For detailed configuration options, see:** [docs/QUICK_CONFIG.md](docs/QUICK_CONFIG.md)
+📖 **For detailed configuration options, see:** [docs/ENV_SETUP_GUIDE.md](docs/ENV_SETUP_GUIDE.md)
 
 # **Goal of Project | Chat AI Application**
 
@@ -468,11 +468,7 @@ All services communicate via RabbitMQ events and REST APIs. The Chat service ser
 ---
 
 
-<<<<<<< HEAD
-## **9\. Architecture**
-=======
 ## **8\. Architecture**
->>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
 
 ### **Event-Driven Microservices**
 
@@ -502,11 +498,7 @@ For detailed architecture documentation, see:
 
 ---
 
-<<<<<<< HEAD
-## **10\. Contributers**
-=======
 ## **9\. Contributers**
->>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
 
 - **DominykasPivo**
 - **S3eedkabak**
@@ -526,25 +518,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
-<<<<<<< HEAD
+
+
 =======
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
