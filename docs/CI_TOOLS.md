@@ -72,15 +72,16 @@ black --check services/ tests/
 isort --check-only services/ tests/
 ```
 
+
 ### Type Checking
 ```
-mypy services/
+mypy services/ --explicit-package-bases
 ```
 
 ### Security Scanning
 ```
 bandit -r services/
-safety check --policy-file ... -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt -r services/auth/requirements.txt
+safety check --policy-file .github/workflows/.safety-policy.yml -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt -r services/auth/requirements.txt
 ```
 
 ## CI Workflow Steps
@@ -100,7 +101,7 @@ The CI pipeline runs multiple jobs in parallel using Python 3.11 (and 3.10, 3.12
 2. **Setup Python:** `actions/setup-python@v5` with Python 3.11
 3. **Install mypy:** `pip install mypy==1.19.0`
 4. **Install type stubs:** `pip install types-requests==2.31.0.20240406 types-aiofiles==23.2.0.20240403`
-5. **Type check:** `mypy services/`
+5. **Type check:** `mypy services/ --explicit-package-bases`
 
 ### Security-Scan Job (Python 3.11)
 1. **Checkout:** `actions/checkout@v4`
