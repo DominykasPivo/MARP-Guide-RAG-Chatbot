@@ -182,16 +182,48 @@ The project includes comprehensive test coverage with **100+ test cases**:
 
 **Note:** The Extraction Service currently has limited test coverage and is a candidate for future test expansion.
 
-### **Running Tests**
+### **Running Tests Locally**
+
+**Install each service's requirements:**
+```bash
+pip install -r services/chat/requirements.txt
+pip install -r services/ingestion/requirements.txt
+pip install -r services/extraction/requirements.txt
+pip install -r services/indexing/requirements.txt
+pip install -r services/retrieval/requirements.txt
+```
+
+**Then install requirements for testing:**
+```bash
+#If your file is in the project root use:
+pip install -r tests/requirements-test.txt
+```
 
 **Run all tests:**
 ```bash
-pytest
+pytest tests
+
+# Run with verbose output
+pytest -v
 ```
 
-**Run with coverage:**
+**To ensure you use the correct Python environment, run tests with:**
 ```bash
-pytest --cov=services --cov-report=html --cov-report=term
+# (Recommended) Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate      # On Linux/Mac
+.\.venv\Scripts\activate       # On Windows
+
+# Run tests using the current environment
+python -m pytest tests
+```
+
+**Run all tests with coverage:**
+```bash
+pytest --cov=services --cov-report=term
+
+# For a detailed HTML report:
+python -m pytest --cov=services --cov-report=html
 ```
 
 **Run specific test categories:**
@@ -206,18 +238,44 @@ pytest tests/integration/
 pytest tests/unit/test_chat_service.py
 ```
 
-**For detailed testing documentation, see [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md)**
+**For detailed testing documentation, see [`tests/TEST_INFO.md`](tests/TEST_INFO.md)**
+**TEST_INFO.md includes:**
+- Test setup instructions (requirements, environment)
+- How to run unit and integration tests
+- Coverage reporting and viewing
+- Troubleshooting tips for common issues
+- Testing strategy and coverage notes
 
 ### **CI/CD Pipeline**
 
-The project uses GitHub Actions for continuous integration:
+The project uses GitHub Actions for continuous integration: Every push and pull request
+triggers the pipeline, which ensures code quality and deployment readiness.
 
-**Workflow Jobs:**
-1. **Python Tests** - Runs full test suite across Python 3.10, 3.11, 3.12 on ubuntu-22.04
-2. **Docker Build** - Matrix build strategy for all 5 microservices
-3. **Code Coverage** - Uploads coverage reports to Codecov
+## **CI/CD Pipeline Details**
 
-**Configuration:** See `.github/workflows/ci.yml` and `docs/CI_CD_CONFIG.md` for details.
+This project uses a robust CI/CD pipeline powered by GitHub Actions to ensure code quality, reliability, and fast feedback for every change:
+
+- **Automated Testing:** All pull requests and pushes to main trigger the full test suite (unit and integration) across Python 3.10–3.12. Coverage is reported to Codecov for visibility.
+- **Linting & Security:** Code is checked with flake8 and security scanning tools to enforce best practices and catch vulnerabilities early.
+- **Docker Builds:** Each microservice is built as a Docker image to validate containerization and enable seamless deployment.
+- **Multi-Service Orchestration:** Docker Compose is used to spin up the full stack for integration tests, ensuring services work together as expected.
+- **Quality Gates:** Builds fail if tests, linting, or security checks do not pass, preventing regressions from reaching production.
+- **Artifacts & Caching:** Build artifacts and Docker layers are cached to speed up subsequent runs.
+- **Extensible Workflow:** The pipeline is easily extendable for deployment to cloud platforms or additional quality checks.
+
+**Pipeline File:** See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for the full workflow definition and customization options.
+**Best Practices:**
+- Keep tests and linting up to date with code changes.
+- Use feature branches and pull requests to trigger the pipeline before merging.
+- Review Codecov and CI status checks for every PR.
+
+For more details, see [`docs/CI_TOOLS.md`](docs/CI_TOOLS.md), which includes:
+- Overview of the CI/CD pipeline structure and workflow
+- Step-by-step explanation of each stage (test, lint, build, security scan, Docker build, deploy)
+- Environment variables and secrets used in the pipeline
+- How to customize or extend the workflow for your needs
+- Troubleshooting tips for common CI/CD issues
+- Best practices for maintaining CI/CD quality gates
 
 ---
 
@@ -225,7 +283,7 @@ The project uses GitHub Actions for continuous integration:
 
 ### **Environment Variables**
 
-The application uses a `.env` file for configuration. Copy the example file to get started:
+The application uses a `.env` file for configuration. Copy the example file to get started (in the project root):
 
 ```bash
 # Linux/Mac
@@ -235,13 +293,10 @@ cp .env.example .env
 Copy-Item .env.example .env
 ```
 
-Or use the automated setup scripts:
-```bash
-# Linux/Mac
-./scripts/setup.sh
-
-# Windows PowerShell
-.\scripts\setup.ps1
+**Add your OpenRouter API key:**
+Edit `.env` and set:
+```
+OPENROUTER_API_KEY=your_key_here
 ```
 
 ### **Key Configuration Areas**
@@ -256,27 +311,25 @@ Or use the automated setup scripts:
 ### **Documentation**
 
 - **Quick Start:** See `docs/QUICK_CONFIG.md` for common configurations
-- **Complete Reference:** See `docs/ENVIRONMENT_CONFIG.md` for all 60+ variables
-- **Package Versions:** See `docs/PACKAGE_VERSIONS.md` for dependency details
-- **CI/CD Setup:** See `docs/CI_CD_CONFIG.md` for pipeline configuration
+- **CI/CD Setup:** See `docs/CI_TOOLS.md` for pipeline configuration
 
 ---
 
 ## **7\. Deployment & Ports**
 
-All services communicate via RabbitMQ events and REST APIs. The Chat service serves the frontend on port 8004.
+All services communicate via RabbitMQ events and REST APIs. The Chat service serves the frontend on port 8005.
 
 | Service | Host Port | Access |
 | :---- | :---- | :---- |
-| Chat (Frontend) | 8004 | **Public:** Web UI at http://localhost:8004 |
+| Chat (Frontend) | 8005 | **Public:** Web UI at http://localhost:8005 |
 | Ingestion | 8001 | **Internal:** Document upload endpoint |
 | Extraction | 8002 | **Internal:** Event consumer |
 | Indexing | 8003 | **Internal:** Event consumer |
-| Retrieval | 8005 | **Internal:** Vector search API |
+| Retrieval | 8004 | **Internal:** Vector search API |
 | RabbitMQ | 5672 | **Internal:** Message broker |
 | RabbitMQ Management | 15672 | **Public:** Admin UI at http://localhost:15672 |
 | Qdrant | 6333 | **Internal:** Vector database (Replaced ChromaDB) |
-
+| Auth | 8006 | **Internal:** Authentication Broker |
 ---
 
 ## **8\. Setup and Run Instructions**
@@ -392,6 +445,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
