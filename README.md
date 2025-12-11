@@ -86,7 +86,7 @@ For local development without Docker:
 
 ---
 
-📖 **For detailed configuration options, see:** [docs/QUICK_CONFIG.md](docs/QUICK_CONFIG.md)
+📖 **For detailed configuration options, see:** [docs/ENV_SETUP_GUIDE.md](docs/ENV_SETUP_GUIDE.md)
 
 # **Goal of Project | Chat AI Application**
 
@@ -442,6 +442,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
