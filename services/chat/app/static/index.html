@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARP AI Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #121212;
+            --bg-secondary: rgba(255, 255, 255, 0.03);
+            --bg-glass: rgba(255, 255, 255, 0.07);
+            --text-primary: #ededee;
+            --text-secondary: #b0b0b5;
+            --accent: #00b8ff;
+            --accent-glow: rgba(0, 184, 255, 0.3);
+            --border: rgba(255, 255, 255, 0.12);
+            --spacing-xs: 8px;
+            --spacing-sm: 16px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+            --spacing-xl: 48px;
+            --spacing-xxl: 64px;
+            --easing: cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 17px;
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.8s var(--easing);
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), #00d4ff);
+            width: 0%;
+            z-index: 9999;
+            transition: width 0.1s ease-out;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 16px 24px;
+            backdrop-filter: blur(20px);
+            background: rgba(0, 0, 0, 0.5);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+            transform: translateY(-100%);
+            transition: transform 0.8s var(--easing);
+        }
+
+        .nav.visible {
+            transform: translateY(0);
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff, #a1a1a6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .signout-button {
+            padding: 6px 14px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s var(--easing);
+        }
+
+        .signout-button:hover {
+            background: rgba(255, 59, 48, 0.2);
+            border-color: #ff3b30;
+            color: #ff3b30;
+        }
+
+        /* Main Container - FIXED */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: var(--spacing-xxl) var(--spacing-lg);
+            padding-top: 100px;
+            min-height: 100vh;
+            transition: all 0.5s var(--easing);
+        }
+
+        /* ✨ BETTER FULLSCREEN MODE - Not cramped at top */
+        .container.chat-focused {
+            max-width: 1200px; /* Wider for better reading */
+            padding: 80px var(--spacing-xl); /* Keep horizontal padding */
+            padding-bottom: var(--spacing-xl);
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: var(--spacing-lg);
+            opacity: 0;
+            transform: translateY(50px);
+            transition: all 0.5s var(--easing);
+        }
+
+        .container.chat-focused .hero {
+            opacity: 0;
+            height: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .hero h1 {
+            font-size: clamp(36px, 5vw, 56px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 0%, #a1a1a6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            letter-spacing: -0.01em;
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        /* Model Selector */
+        .model-selector {
+            margin-bottom: var(--spacing-md);
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.5s var(--easing);
+        }
+
+        .container.chat-focused .model-selector {
+            opacity: 0;
+            height: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .model-selector label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: center;
+        }
+
+        .model-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .model-chip {
+            padding: 5px 10px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s var(--easing);
+        }
+
+        .model-chip:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .model-chip.active {
+            background: rgba(0, 122, 255, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Chat Container - BETTER EXPANSION */
+        .chat-container {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 0 auto var(--spacing-xl);
+            opacity: 0;
+            transform: translateY(30px);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            transition: all 0.5s var(--easing);
+            max-width: 800px;
+        }
+
+        /* ✨ FIXED: Better fullscreen - not cramped */
+        .container.chat-focused .chat-container {
+            max-width: 100%;
+            margin: 0 auto var(--spacing-lg);
+            padding: var(--spacing-lg);
+            border-radius: 20px; /* Keep rounded corners */
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Messages Area - BETTER HEIGHT */
+        .messages {
+            min-height: 150px;
+            max-height: 350px;
+            overflow-y: auto;
+            padding: 12px;
+            margin-bottom: 12px;
+            scroll-behavior: smooth;
+            transition: all 0.5s var(--easing);
+        }
+
+        /* ✨ FIXED: Better height in focused mode */
+        .container.chat-focused .messages {
+            min-height: 300px; /* Better minimum */
+            max-height: calc(100vh - 300px); /* More space, not cramped */
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 2px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.6s var(--easing) forwards;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-user {
+            text-align: right;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            padding: 10px 14px;
+            border-radius: 16px;
+            max-width: 70%;
+            word-wrap: break-word;
+            font-size: 14px;
+        }
+
+        .message-user .message-bubble {
+            background: var(--accent);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-assistant .message-bubble {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-model {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .message-text {
+            line-height: 1.5;
+        }
+
+        /* Citations - FULL DETAILS */
+        .citations {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .citations-header {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .citation {
+            display: block;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: rgba(0, 122, 255, 0.05);
+            border: 1px solid rgba(0, 122, 255, 0.15);
+            border-radius: 10px;
+            transition: all 0.3s var(--easing);
+            cursor: pointer;
+        }
+
+        .citation:hover {
+            background: rgba(0, 122, 255, 0.1);
+            border-color: rgba(0, 122, 255, 0.3);
+            transform: translateX(4px);
+        }
+
+        .citation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .citation-title {
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .citation-score {
+            font-size: 10px;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+
+        .citation-meta {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .citation-text {
+            font-size: 11px;
+            color: var(--text-primary);
+            line-height: 1.4;
+            opacity: 0.9;
+        }
+
+        /* Loading Indicator */
+        .loading-indicator {
+            display: none;
+            padding: 8px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .loading-indicator.active {
+            display: block;
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            gap: 3px;
+        }
+
+        .typing-dots span {
+            width: 5px;
+            height: 5px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-6px);
+                opacity: 1;
+            }
+        }
+
+        /* Input Area - MINIMAL & COMPACT */
+        .input-area {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .input-wrapper textarea {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            min-height: 40px;
+            max-height: 120px;
+            transition: all 0.3s var(--easing);
+            letter-spacing: -0.01em;
+        }
+
+        .input-wrapper textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .input-wrapper textarea::placeholder {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .send-button {
+            padding: 10px 18px;
+            background: linear-gradient(135deg, var(--accent), #00d4ff);
+            border: none;
+            border-radius: 14px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s var(--easing);
+            letter-spacing: -0.01em;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+            white-space: nowrap;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+        }
+
+        .send-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Particles Background */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+            transition: opacity 0.5s var(--easing);
+        }
+
+        .container.chat-focused .particles {
+            opacity: 0.2; /* Dimmer in focused mode */
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 20s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-lg) var(--spacing-md);
+                padding-top: 90px;
+            }
+
+            .container.chat-focused {
+                padding: 80px var(--spacing-md);
+            }
+
+            .hero h1 {
+                font-size: clamp(28px, 8vw, 44px);
+            }
+
+            .message-bubble {
+                max-width: 80%;
+            }
+
+            .send-button {
+                padding: 10px 16px;
+                font-size: 12px;
+            }
+        }
+
+        /* Error Message */
+        .error {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff3b30;
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="progress-bar" id="progressBar"></div>
+
+    <nav class="nav" id="nav">
+        <div class="nav-content">
+            <div class="logo">MARP AI</div>
+            <button class="signout-button" onclick="signOut()">Sign Out</button> 
+        </div>
+    </nav>
+
+    <div class="particles" id="particles"></div>
+
+    <div class="container" id="container">
+        <div class="hero" id="hero">
+            <h1>Ask Anything</h1>
+            <p>Powered by advanced AI models with real-time document retrieval</p>
+        </div>
+
+        <div class="model-selector" id="modelSelector">
+            <label>Select Models</label>
+            <div class="model-chips" id="modelChips"></div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="messages" id="messages"></div>
+            <div class="loading-indicator" id="loadingIndicator">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea
+                        id="messageInput"
+                        placeholder="Ask about MARP regulations..."
+                        rows="1"
+                    ></textarea>
+                </div>
+                <button class="send-button" id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        let availableModels = [];
+        let selectedModels = [];
+        let isLoading = false;
+        
+        const API_CHAT_URL = 'http://localhost:8005/chat';
+        let currentUserId = null; 
+        const API_MODELS_URL = 'http://localhost:8005/models';
+
+        const loadingScreen = document.getElementById('loadingScreen');
+        const progressBar = document.getElementById('progressBar');
+        const nav = document.getElementById('nav');
+        const hero = document.getElementById('hero');
+        const modelSelector = document.getElementById('modelSelector');
+        const chatContainer = document.getElementById('chatContainer');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const modelChips = document.getElementById('modelChips');
+        const container = document.getElementById('container');
+
+        const DEFAULT_MODELS = [
+            'google/gemma-2-9b-it:free',
+            'meta-llama/llama-3.2-3b-instruct:free',
+            'microsoft/phi-3-mini-128k-instruct:free'
+        ];
+
+        function toggleChatFocus(focused) {
+            if (focused) {
+                container.classList.add('chat-focused');
+            } else {
+                container.classList.remove('chat-focused');
+            }
+        }
+
+        function signOut() {
+            localStorage.removeItem('marp_user_id');
+            localStorage.removeItem('marp_username');
+            currentUserId = null;
+            window.location.href = 'auth.html'; 
+        }
+
+        function checkAuthentication() {
+            const userId = localStorage.getItem('marp_user_id');
+            if (!userId) {
+                window.location.href = 'auth.html';
+                return false;
+            }
+            currentUserId = userId;
+            return true;
+        }
+
+        async function loadModels() {
+            try {
+                const response = await fetch(API_MODELS_URL);
+                if (!response.ok) {
+                    console.warn('⚠️ Using default models (API unavailable)');
+                    availableModels = DEFAULT_MODELS;
+                    selectedModels = DEFAULT_MODELS.slice(0, 2);
+                    renderModelChips();
+                    return;
+                }
+                const data = await response.json();
+                availableModels = data.models || DEFAULT_MODELS;
+                selectedModels = availableModels.slice(0, 2);
+                renderModelChips();
+            } catch (error) {
+                console.warn('⚠️ Model fetch failed, using defaults:', error);
+                availableModels = DEFAULT_MODELS;
+                selectedModels = DEFAULT_MODELS.slice(0, 2);
+                renderModelChips();
+            }
+        }
+
+        function toggleModel(model) {
+            const index = selectedModels.indexOf(model);
+            if (index > -1) {
+                if (selectedModels.length > 1) {
+                    selectedModels.splice(index, 1);
+                }
+            } else {
+                selectedModels.push(model);
+            }
+            renderModelChips();
+        }
+
+        function renderModelChips() {
+            modelChips.innerHTML = '';
+            availableModels.forEach(model => {
+                const chip = document.createElement('div');
+                chip.className = 'model-chip' + (selectedModels.includes(model) ? ' active' : '');
+                chip.textContent = model.split('/')[1].split(':')[0];
+                chip.onclick = () => toggleModel(model);
+                modelChips.appendChild(chip);
+            });
+        }
+
+        async function sendMessage() {
+            const query = messageInput.value.trim();
+            if (!query || isLoading) return;
+
+            isLoading = true;
+            sendButton.disabled = true;
+            loadingIndicator.classList.add('active');
+
+            addMessage('user', query);
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            try {
+                const response = await fetch(API_CHAT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Id': currentUserId
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        models: selectedModels
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.responses && data.responses.length > 0) {
+                    data.responses.forEach(resp => {
+                        addMessage('assistant', resp.answer, resp.model, resp.citations);
+                    });
+                } else {
+                    showError('No response from AI models');
+                }
+            } catch (error) {
+                console.error('❌ Chat error:', error);
+                showError(`Error: ${error.message}`);
+            } finally {
+                isLoading = false;
+                sendButton.disabled = false;
+                loadingIndicator.classList.remove('active');
+            }
+        }
+
+        function addMessage(role, content, model = null, citations = []) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${role}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+
+            if (model) {
+                const modelLabel = document.createElement('div');
+                modelLabel.className = 'message-model';
+                modelLabel.textContent = model.split('/')[1].split(':')[0];
+                bubble.appendChild(modelLabel);
+            }
+
+            const text = document.createElement('div');
+            text.className = 'message-text';
+            text.innerHTML = formatText(content);
+            bubble.appendChild(text);
+
+            // ✅ ACTUALLY FIXED NOW - Using correct citation structure!
+            if (citations && citations.length > 0) {
+                console.log('🔍 Citation structure:', citations[0]);
+                
+                const citationsDiv = document.createElement('div');
+                citationsDiv.className = 'citations';
+                
+                const citationsHeader = document.createElement('div');
+                citationsHeader.className = 'citations-header';
+                citationsHeader.textContent = `📚 Sources (${citations.length})`;
+                citationsDiv.appendChild(citationsHeader);
+
+                citations.forEach((cite, idx) => {
+                    const citationCard = document.createElement('div');
+                    citationCard.className = 'citation';
+                    
+                    const header = document.createElement('div');
+                    header.className = 'citation-header';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'citation-title';
+                    title.textContent = `Source ${idx + 1}`;
+                    
+                    const score = document.createElement('div');
+                    score.className = 'citation-score';
+                    // ✅ Use 'score' field directly (no similarity field!)
+                    const similarity = cite.score || 0;
+                    score.textContent = `${(similarity * 100).toFixed(1)}% match`;
+                    
+                    header.appendChild(title);
+                    header.appendChild(score);
+                    
+                    const meta = document.createElement('div');
+                    meta.className = 'citation-meta';
+                    // ✅ Use direct fields: page, title, url (no metadata object!)
+                    const fileName = cite.title || cite.url?.split('/').pop() || 'MARP Guide';
+                    const pageNum = cite.page || 'N/A';
+                    meta.textContent = `Page ${pageNum} • ${fileName}`;
+                    
+                    const citationText = document.createElement('div');
+                    citationText.className = 'citation-text';
+                    // ✅ Use 'text' field (based on backend logs)
+                    const fullText = cite.text || cite.content || 'Click to view full citation';
+                    citationText.textContent = fullText.length > 150 
+                        ? fullText.substring(0, 150) + '...' 
+                        : fullText;
+                    
+                    citationCard.appendChild(header);
+                    citationCard.appendChild(meta);
+                    citationCard.appendChild(citationText);
+                    
+                    citationCard.onclick = () => {
+                        const displayText = fullText || 'No content available';
+                        const displayUrl = cite.url || 'No URL';
+                        alert(`Full Citation:\n\nTitle: ${fileName}\nPage: ${pageNum}\nURL: ${displayUrl}\nScore: ${(similarity * 100).toFixed(2)}%\n\n${displayText}`);
+                    };
+                    
+                    citationsDiv.appendChild(citationCard);
+                });
+                
+                bubble.appendChild(citationsDiv);
+            }
+
+            messageDiv.appendChild(bubble);
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function formatText(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            messages.appendChild(errorDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        function setupScrollProgress() {
+            window.addEventListener('scroll', () => {
+                const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                progressBar.style.width = scrolled + '%';
+            });
+        }
+
+        function setupEventListeners() {
+            sendButton.addEventListener('click', sendMessage);
+            
+            messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            messageInput.addEventListener('input', () => {
+                messageInput.style.height = 'auto';
+                messageInput.style.height = messageInput.scrollHeight + 'px';
+            });
+
+            messageInput.addEventListener('focus', () => {
+                toggleChatFocus(true);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!chatContainer.contains(e.target) && messages.children.length === 0) {
+                    toggleChatFocus(false);
+                }
+            });
+        }
+
+        async function init() {
+            if (!checkAuthentication()) return;
+
+            createParticles();
+            setupScrollProgress();
+            setupEventListeners();
+            
+            await loadModels();
+
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+                
+                gsap.to(nav, { duration: 0.8, delay: 0.2, ease: 'power2.out' });
+                nav.classList.add('visible');
+                
+                gsap.to(hero, { opacity: 1, y: 0, duration: 1, delay: 0.4, ease: 'power2.out' });
+                gsap.to(modelSelector, { opacity: 1, y: 0, duration: 1, delay: 0.6, ease: 'power2.out' });
+                gsap.to(chatContainer, { opacity: 1, y: 0, duration: 1, delay: 0.8, ease: 'power2.out' });
+            }, 500);
+        }
+
+        init();
+    </script>
+</body>
+</html>

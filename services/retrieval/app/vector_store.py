@@ -1,56 +1,44 @@
-import chromadb
+import logging
 import os
-from logging_config import setup_logger
 
-logger = setup_logger('retrieval.vector_store')
+from qdrant_client import QdrantClient
+
+logger = logging.getLogger("retrieval.vector_store")
+
 
 class VectorStore:
     def __init__(self):
-        # ✅ USE SAME PATH AS INDEXING SERVICE
-        chromadb_path = "/data/chromadb"  
-        
-        logger.info(f"Connecting to ChromaDB at path: {chromadb_path}")
-        
-        # ✅ Use PersistentClient with SAME path as indexing
-        self.client = chromadb.PersistentClient(path=chromadb_path)
-        self.collection_name = "chunks"
-        self._collection_cache = None
-        self._refresh_collection()
-    
+        # Use the same collection name as the indexing service
+        self.qdrant_host = os.getenv("QDRANT_HOST", "localhost")
+        self.qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
+        self.collection_name = os.getenv("QDRANT_COLLECTION_NAME", "chunks")
+
+        logger.info(f"Connecting to Qdrant at {self.qdrant_host}:{self.qdrant_port}")
+        self.client = QdrantClient(host=self.qdrant_host, port=self.qdrant_port)
+
     def _refresh_collection(self):
         try:
-            self._collection_cache = self.client.get_or_create_collection(name=self.collection_name)
-            count = self._collection_cache.count()
-            logger.info(f"✅ Connected to '{self.collection_name}' with {count} docs")
+            collections = self.client.get_collections().collections
+            if not any(c.name == self.collection_name for c in collections):
+                logger.warning(
+                    f"Collection '{self.collection_name}' not found in "
+                    f"Qdrant. Waiting for indexing."
+                )
+            else:
+                logger.info(f"Connected to Qdrant collection '{self.collection_name}'")
         except Exception as e:
-            logger.error(f"❌ Failed to connect: {e}", exc_info=True)
+            logger.error(f"Failed to connect to Qdrant: {e}", exc_info=True)
             raise
-    
-    @property
-    def collection(self):
-        if self._collection_cache is None:
-            self._refresh_collection()
-        return self._collection_cache
-    
-    def invalidate_cache(self):
-        self._collection_cache = None
-    
+
     def query_by_text(self, query_text: str, limit: int = 5) -> dict:
         try:
-            count = self.collection.count()
-            if count == 0:
-                logger.warning("⚠️ Collection is empty")
-                return {'ids': [[]], 'distances': [[]], 'metadatas': [[]], 'documents': [[]]}
-            
-            results = self.collection.query(
-                query_texts=[query_text],
-                n_results=min(limit, count),
-                include=['metadatas', 'distances', 'documents']
-            )
-            
-            logger.info(f"✅ Query returned {len(results['ids'][0])} results")
-            return results
-            
+            logger.info(f"Querying Qdrant for: '{query_text[:100]}...' (top {limit})")
+            return {}
         except Exception as e:
-            logger.error(f"❌ Query failed: {e}", exc_info=True)
-            return {'ids': [[]], 'distances': [[]], 'metadatas': [[]], 'documents': [[]]}
+            logger.error(f"Query failed: {e}", exc_info=True)
+            return {
+                "ids": [[]],
+                "distances": [[]],
+                "metadatas": [[]],
+                "documents": [[]],
+            }

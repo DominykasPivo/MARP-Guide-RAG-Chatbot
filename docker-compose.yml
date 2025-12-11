@@ -1,10 +1,36 @@
+version: '3.8'
 
 services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: marp_postgres
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres_user
+      POSTGRES_PASSWORD: mysecretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres_user -d mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
   rabbitmq:
     image: rabbitmq:3-management
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
     ports:
-      - "5672:5672"    # AMQP protocol port
-      - "15672:15672"  # Management UI port
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"    # AMQP protocol port
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"  # Management UI port
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -13,32 +39,6 @@ services:
     networks:
       - app-network
 
-  ingestion:
-    build:
-      context: ./services/ingestion
-      dockerfile: Dockerfile
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    environment:
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-    ports:
-      - "8001:8000"
-    volumes:
-      - ./data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 15s
-    networks:
-      - app-network
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-
   extraction:
     build:
       context: ./services/extraction
@@ -46,11 +46,14 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      indexing:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - INGESTION_SERVICE_URL=http://ingestion:8000
     ports:
-      - "8002:8000"
+      - "${EXTRACTION_PORT:-8002}:8000"
     volumes:
       - ./data:/data
     healthcheck:
@@ -66,37 +69,24 @@ services:
       options:
         max-size: "10m"
 
-  chromadb:
-    image: chromadb/chroma:latest
-    ports:
-      - "8080:8000" # ChromaDB server port
-    volumes:
-      - chroma_data:/data
-    networks:
-      - app-network
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-
-  indexing:
-    build: 
-      context: ./services/indexing
+  ingestion:
+    build:
+      context: ./services/ingestion
       dockerfile: Dockerfile
     depends_on:
       rabbitmq:
         condition: service_healthy
-      chromadb: 
-        condition: service_started
+      extraction:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      - RABBITMQ_HOST=rabbitmq
-      - INGESTION_SERVICE_URL=http://ingestion:8000
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - DATA_DIR=/data
     ports:
-      - "8003:8000"
+      - "${INGESTION_PORT:-8001}:8000"
     volumes:
-      - ./data/chromadb:/chromadb
+      - ./data:/data
     healthcheck:
       test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health"]
       interval: 30s
@@ -105,6 +95,50 @@ services:
       start_period: 15s
     networks:
       - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    env_file:
+      - .env
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  indexing:
+    build:
+      context: ./services/indexing
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=chunks
+      - QDRANT_VECTOR_SIZE=384
+    ports:
+      - "${INDEXING_PORT:-8003}:8000"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
     logging:
       driver: json-file
       options:
@@ -114,21 +148,20 @@ services:
     build:
       context: ./services/retrieval
       dockerfile: Dockerfile
+    env_file:
+      - .env
     ports:
-      - "8004:8000"
+      - "${RETRIEVAL_PORT:-8004}:8000"
     environment:
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
-      - CHROMA_PATH=/chroma/chroma
-      - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=chunks
     depends_on:
       rabbitmq:
         condition: service_healthy
-      chromadb:
+      qdrant:
         condition: service_started
-    volumes:
-      - chroma_data:/chroma/c
     healthcheck:
       test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health"]
       interval: 30s
@@ -146,24 +179,55 @@ services:
     build:
       context: ./services/chat
       dockerfile: Dockerfile
-    container_name: chat-service
+    env_file:
+      - .env
     ports:
-      - "8005:8000"
+      - "${CHAT_PORT:-8005}:8000"
     environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-MOCK_KEY_FOR_TESTING}
-      - LLM_MODEL=anthropic/claude-3.5-sonnet
-      - PORT=8000
+      - RETRIEVAL_SERVICE_URL=http://retrieval:8000
     depends_on:
       rabbitmq:
         condition: service_healthy
+      retrieval:
+        condition: service_healthy
     networks:
       - app-network
+
+  auth:
+    build:
+      context: ./services/auth
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8000"
+    environment:
+      - POSTGRES_DB=mydb
+      - POSTGRES_USER=postgres_user
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+
 
 networks:
   app-network:
     driver: bridge
 
 volumes:
-  chroma_data:
+  qdrant_data:
+  postgres_data:

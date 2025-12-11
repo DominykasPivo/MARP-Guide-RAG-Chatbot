@@ -11,6 +11,6 @@ Discovers, downloads, and registers academic regulation documents from Lancaster
 ### API Endpoints:
 -   [GET]  / – Home/status endpoint
 -   [GET]  /health – Health check by using the RabbitMQ status
--   [POST] /discovery/start – Triggers the discovery of new/updated/deleted PDFs 
+-   [POST] /discovery/start – Triggers the discovery of new/updated/deleted PDFs
 -   [GET]  /documents - lists all the documents in the discovery cache (JSON file)
--   [GET]  /documents/<document_id> - downloads a specific document by giving its document_id 
+-   [GET]  /documents/<document_id> - downloads a specific document by giving its document_id

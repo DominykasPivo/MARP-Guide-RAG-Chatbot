@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARP Auth</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #121212;
+            --bg-secondary: rgba(255, 255, 255, 0.03);
+            --bg-glass: rgba(255, 255, 255, 0.07);
+            --text-primary: #ededee;
+            --text-secondary: #b0b0b5;
+            --accent: #00b8ff;
+            --accent-glow: rgba(0, 184, 255, 0.3);
+            --border: rgba(255, 255, 255, 0.12);
+            --spacing-xs: 8px;
+            --spacing-sm: 16px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+            --spacing-xl: 48px;
+            --easing: cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 17px;
+            line-height: 1.6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: var(--spacing-lg);
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 450px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: var(--spacing-lg);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.5s var(--easing);
+        }
+
+        .auth-card h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-lg);
+            text-align: center;
+        }
+
+        .tab-selector {
+            display: flex;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .tab-selector button {
+            flex: 1;
+            padding: var(--spacing-sm);
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s var(--easing);
+        }
+
+        .tab-selector button.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+        
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 16px;
+            transition: all 0.3s var(--easing);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .submit-button {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-xl);
+            background: linear-gradient(135deg, var(--accent), #00d4ff);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s var(--easing);
+            letter-spacing: -0.01em;
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+            margin-top: var(--spacing-sm);
+        }
+
+        .submit-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #messageBox {
+            padding: var(--spacing-sm);
+            border-radius: 12px;
+            margin-top: var(--spacing-md);
+            text-align: center;
+            font-size: 14px;
+            min-height: 40px;
+            transition: all 0.4s var(--easing);
+        }
+        
+        .success {
+            background: rgba(76, 217, 100, 0.15);
+            color: #4cd964;
+            border: 1px solid rgba(76, 217, 100, 0.3);
+        }
+
+        .error {
+            background: rgba(255, 59, 48, 0.15);
+            color: #ff3b30;
+            border: 1px solid rgba(255, 59, 48, 0.3);
+        }
+
+        .hidden {
+            opacity: 0;
+            height: 0;
+            padding: 0;
+            margin-top: 0;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-card">
+        <h2>MARP AI Login</h2>
+
+        <div class="tab-selector">
+            <button id="loginTab" class="active" onclick="showForm('login')">Login</button>
+            <button id="registerTab" onclick="showForm('register')">Register</button>
+        </div>
+
+        <form id="loginForm" onsubmit="handleAuth(event, 'login')">
+            <div class="form-group">
+                <label for="loginUsername">Username</label>
+                <input type="text" id="loginUsername" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="submit-button" id="loginButton">Log In</button>
+        </form>
+
+        <form id="registerForm" onsubmit="handleAuth(event, 'register')" style="display: none;">
+            <div class="form-group">
+                <label for="registerUsername">Username</label>
+                <input type="text" id="registerUsername" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="registerPassword">Password</label>
+                <input type="password" id="registerPassword" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="submit-button" id="registerButton">Register</button>
+        </form>
+
+        <div id="messageBox" class="hidden"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8006';
+        const CHAT_URL = '/static/index.html';  // Changed to relative path
+
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const loginTab = document.getElementById('loginTab');
+        const registerTab = document.getElementById('registerTab');
+        const messageBox = document.getElementById('messageBox');
+
+        function showForm(formType) {
+            if (formType === 'login') {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+            } else {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                loginTab.classList.remove('active');
+                registerTab.classList.add('active');
+            }
+            clearMessage();
+        }
+
+        function displayMessage(message, type) {
+            messageBox.textContent = message;
+            messageBox.className = type;
+            messageBox.classList.remove('hidden');
+            setTimeout(clearMessage, 5000);
+        }
+        
+        function clearMessage() {
+            messageBox.classList.add('hidden');
+            setTimeout(() => {
+                messageBox.className = '';
+            }, 400);
+        }
+
+        async function handleAuth(event, endpoint) {
+            event.preventDefault();
+            clearMessage();
+
+            const usernameInput = document.getElementById(`${endpoint}Username`);
+            const passwordInput = document.getElementById(`${endpoint}Password`);
+            const submitButton = document.getElementById(`${endpoint}Button`);
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!username || !password) {
+                displayMessage("Please enter both username and password.", 'error');
+                return;
+            }
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+
+            try {
+                console.log('Attempting to connect to:', `${API_BASE_URL}/${endpoint}`);
+                
+                const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+                    method: 'POST',
+                    mode: 'cors',  // Explicitly enable CORS
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    const detail = data.detail || 'An unknown error occurred.';
+                    throw new Error(detail);
+                }
+
+                const data = await response.json();
+
+                if (endpoint === 'register') {
+                    displayMessage("Registration successful! You can now log in.", 'success');
+                    showForm('login');
+                    usernameInput.value = '';
+                    passwordInput.value = '';
+                } else if (endpoint === 'login') {
+                    const userId = data.user_id;
+                    if (userId) {
+                        localStorage.setItem('marp_user_id', userId);
+                        localStorage.setItem('marp_username', username);
+                        
+                        displayMessage(`Login successful! Redirecting...`, 'success');
+                        
+                        setTimeout(() => {
+                            window.location.href = CHAT_URL;
+                        }, 1000);
+                        
+                    } else {
+                        throw new Error("Login succeeded but User ID was not returned.");
+                    }
+                }
+
+            } catch (error) {
+                console.error('Full error details:', error);
+                let errorMessage = "Network Error: Could not connect to the auth service. ";
+                errorMessage += "Make sure the auth service is running on port 8006.";
+                
+                if (error.message && !error.message.includes('Failed to fetch')) {
+                    errorMessage = error.message;
+                }
+                
+                displayMessage(errorMessage, 'error');
+
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = endpoint === 'login' ? 'Log In' : 'Register';
+            }
+        }
+        
+        window.onload = () => {
+            const userId = localStorage.getItem('marp_user_id');
+            const username = localStorage.getItem('marp_username');
+            if (userId && username) {
+                displayMessage(`Session found for ${username}. Redirecting...`, 'success');
+                setTimeout(() => {
+                    window.location.href = CHAT_URL;
+                }, 1000);
+            }
+        };
+    </script>
+</body>
+</html>

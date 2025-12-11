@@ -1,28 +1,15 @@
-# Log files
-logs/
-*.log
-*.log.*
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Environment variables
+.env
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# Virtual Environment
-venv/
-.venv/
-env/
-.env/
-ENV/
-virtualenv/
-.virtualenv/
 .Python
-
-# Distribution / packaging
+env/
+venv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -39,28 +26,35 @@ wheels/
 .installed.cfg
 *.egg
 
-# Environment variables
-.env
-.env.local
-.env.*.local
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
 
-# Docker
-.docker/
-
-# IDE specific files
-.idea/
+# IDEs
 .vscode/
+.idea/
 *.swp
 *.swo
+*~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Project specific
-/data/
-*.db
-*.sqlite3
+# Data
+data/
+*.pdf
+*.docx
 
-# Temporary files
-*.tmp
-*~
-*.bak
+# Logs
+*.log
+
+# Docker
+*.env.local
+
+# Qdrant storage
+qdrant_data/
+.DS_Store
