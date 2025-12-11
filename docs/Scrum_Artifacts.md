@@ -42,3 +42,31 @@ This backlog contains all known features, user stories, and technical debt requi
 
 * **Dependency Tracking:** We underestimated the time needed for the RetrievalService (S1-03) because it relied on the correct ChromaDB volume setup from the Docker work (S1-01). **Action:** Clearly document inter-service setup dependencies in the backlog item notes.
 * **Sequential Testing:** We waited too long to test the end-to-end ChatService flow (S1-05). **Action:** Next sprint, prioritize setting up mock services for early integration testing (e.g., a mock AuthService).
+
+
+# **Sprint 2 Log: Enhancements and Transition to FastAPI**
+
+* **Sprint Goal:** Enhance system capabilities, transition from Flask to FastAPI, and improve testing coverage.
+* **Duration:** 4 Weeks
+* **Team Capacity:** 3
+
+| Item ID | Description | Backlog Item | Status | Notes |
+| :---- | :---- | :---- | :---- | :---- |
+| **S2-01** | Transition API Gateway from Flask to FastAPI. | PBL-03 | DONE | Improved performance and simplified async handling. |
+| **S2-02** | Update Orchestrator to FastAPI and integrate with updated API Gateway. | PBL-01 | DONE | Required changes to routing and middleware. |
+| **S2-03** | Implement mock AuthService for early integration testing. | PBL-07 | DONE | Enabled faster end-to-end testing. |
+| **S2-04** | Add unit tests for ChatService and RetrievalService. | PBL-08 | IN PROGRESS | Targeting 80% coverage. |
+| **S2-05** | Enhance React frontend with conversation history and error handling. | PBL-05 | DONE | Improved user experience and debugging. |
+
+# **Team Retrospective: Sprint 2 (Enhancements and Transition)**
+
+## **1. What Went Well?**
+
+* **FastAPI Transition:** The switch from Flask to FastAPI was smoother than expected, with noticeable performance improvements.
+* **Mock Services:** Early integration testing with mock services saved significant debugging time.
+* **Frontend Enhancements:** The improved UI received positive feedback from stakeholders.
+
+## **2. What Could Be Improved?**
+
+* **Documentation Updates:** Some team members found it challenging to keep up with the changes in API endpoints during the transition. **Action:** Dedicate time for documentation updates in future sprints.
+* **Test Coverage:** While progress was made, we fell short of the 80% coverage goal. **Action:** Allocate more time for writing and reviewing tests in the next sprint.
