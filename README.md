@@ -160,62 +160,74 @@ graph LR
 
 ### **Prerequisites**
 
-1. **Docker & Docker Compose:** Install Docker Desktop or Docker Engine with Compose plugin
-2. **Git:** Clone this repository
-3. **API Keys:** OpenRouter API key for LLM access (or configure alternative LLM provider)
+1. **Docker**: Install Docker (20.10+) and Docker Compose (or Docker Desktop) on your system.
+2. **Git**: Clone this repository.
+3. **API Keys**: Obtain an OpenRouter API key for LLM access (or configure an alternative LLM provider).
+
+---
 
 ### **Quick Start**
 
-1. **Clone the repository:**
+1. **Clone the repository**:
    ```bash
-   git clone https://github.com/DomasB123/MARP-Guide-RAG-Chatbot.git
+   git clone https://github.com/DominykasPivo/MARP-Guide-RAG-Chatbot.git
    cd MARP-Guide-RAG-Chatbot
    ```
 
-2. **Set up environment variables:**
+2. **Set up environment variables**:
    ```bash
    # Linux/Mac
-   ./scripts/setup.sh
+   cp .env.example .env
    
    # Windows PowerShell
-   .\scripts\setup.ps1
+   Copy-Item .env.example .env
    ```
-   
-   Or manually:
+   - Edit the `.env` file to configure API keys, database credentials, and other settings.
+
+3. **Start all services**:
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration (API keys, etc.)
+   docker-compose up --build -d
    ```
 
-3. **Start all services:**
-   ```bash
-   docker-compose up --build
-   ```
+4. **Access the application**:
+   - **Frontend**: [http://localhost:8004](http://localhost:8004)
+   - **RabbitMQ Management**: [http://localhost:15672](http://localhost:15672) (default credentials: `guest/guest`)
 
-4. **Access the application:**
-   - Frontend: http://localhost:8004
-   - RabbitMQ Management: http://localhost:15672 (guest/guest)
+5. **Verify service health**:
+   - **Auth Service**: [http://localhost:8001/health](http://localhost:8001/health)
+   - **Chat Service**: [http://localhost:8005/health](http://localhost:8005/health)
+
+---
 
 ### **Development Setup**
 
 For local development without Docker:
 
-1. **Install Python 3.10-3.12**
-2. **Install dependencies:**
+1. **Install Python 3.10-3.12**:
+   - Ensure Python is installed and added to your PATH.
+
+2. **Install dependencies**:
    ```bash
    pip install -r services/chat/requirements.txt
    pip install -r services/ingestion/requirements.txt
-   # ... repeat for other services
+   pip install -r services/auth/requirements.txt
+   # Repeat for other services as needed
    ```
-3. **Start infrastructure:**
+
+3. **Start infrastructure**:
    ```bash
    docker-compose up rabbitmq qdrant
    ```
-4. **Run services individually:**
+
+4. **Run services individually**:
    ```bash
+   # Example: Running the Chat Service
    cd services/chat
    python -m app.app
    ```
+
+5. **Verify service health**:
+   - Check the `/health` endpoint for each service to ensure it is running.
 
 ---
 
@@ -447,6 +459,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
