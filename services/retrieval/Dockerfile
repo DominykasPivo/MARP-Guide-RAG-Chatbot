@@ -5,13 +5,20 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install curl for healthchecks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Copy dependency files
 COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies with aggressive cleanup
+RUN pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache/pip && \
+    find /usr/local/lib/python3.12 -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.12 -type f -name "*.pyc" -delete && \
+    find /usr/local/lib/python3.12 -type f -name "*.pyo" -delete
 
 # Copy the source code into the container
 COPY app/ .

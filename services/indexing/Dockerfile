@@ -5,18 +5,22 @@ FROM python:3.12-slim
 #Set working directory
 WORKDIR /app
 
+# Install build tools and curl for healthchecks BEFORE pip packages
+# This allows better layer caching and reduces final image size
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential g++ cmake curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Copy dependency files
 COPY requirements.txt .
 
-
-# Install dependencies (includes qdrant-client)
-RUN pip install --no-cache-dir -r requirements.txt
-
-
-
-# Install build tools and curl for healthchecks
-RUN apt-get update && apt-get install -y build-essential g++ cmake curl && rm -rf /var/lib/apt/lists/*
+# Install dependencies with aggressive cleanup
+RUN pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache/pip && \
+    find /usr/local/lib/python3.12 -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.12 -type f -name "*.pyc" -delete && \
+    find /usr/local/lib/python3.12 -type f -name "*.pyo" -delete
 
 
 # Copy the source code into the container.

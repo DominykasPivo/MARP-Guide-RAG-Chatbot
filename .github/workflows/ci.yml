@@ -177,14 +177,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Free up disk space
+      - name: Free up disk space aggressively
         run: |
+          echo "Before cleanup:"
+          df -h
+          
+          # Remove unnecessary packages and files
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          sudo apt-get autoremove -y
+          sudo apt-get autoclean -y
+          
+          # Remove large Docker images and containers
           docker system prune -af --volumes
+          
+          # Remove swap to free up more space
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          
+          echo "After cleanup:"
           df -h
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
-        run: |
-          docker build -f services/${{ matrix.service }}/Dockerfile -t marp-${{ matrix.service }}:test services/${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: services/${{ matrix.service }}
+          file: services/${{ matrix.service }}/Dockerfile
+          tags: marp-${{ matrix.service }}:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Test Docker image
         run: |
