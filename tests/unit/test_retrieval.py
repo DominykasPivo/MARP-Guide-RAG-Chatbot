@@ -12,6 +12,7 @@ Target files:
 - services/retrieval/app/app.py
 - services/retrieval/app/retrieval.py
 - services/retrieval/app/retrieval_rabbitmq.py
+
 """
 
 import json
