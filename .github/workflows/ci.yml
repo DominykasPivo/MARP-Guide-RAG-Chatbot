@@ -215,7 +215,13 @@ jobs:
 
       - name: Free up disk space
         run: |
+          # Remove unnecessary packages
+          sudo apt-get remove -y '^dotnet-.*' '^llvm-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          # Clean Docker
           docker system prune -af --volumes
+          # Show disk space
           df -h
 
       - name: Build service images in parallel
@@ -240,9 +246,15 @@ jobs:
           chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
           docker compose version
 
+      - name: Pull base infrastructure images
+        run: |
+          docker pull rabbitmq:3-management
+          docker pull qdrant/qdrant:latest
+          docker pull postgres:15-alpine
+
       - name: Start Docker Compose services
         run: |
-          docker compose -f docker-compose.e2e.yml up -d --pull never
+          docker compose -f docker-compose.e2e.yml up -d
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
