@@ -446,9 +446,13 @@ class TestRetrievalService:
 
     def setup_method(self):
         """Reset mocks before each test."""
-        sys.modules["retrieval_events"].reset_mock()
-        sys.modules["retrieval_rabbitmq"].reset_mock()
-        sys.modules["retriever"].reset_mock()
+        # Only reset if present to avoid KeyError
+        if "retrieval_events" in sys.modules:
+            sys.modules["retrieval_events"].reset_mock()
+        if "retrieval_rabbitmq" in sys.modules:
+            sys.modules["retrieval_rabbitmq"].reset_mock()
+        if "retriever" in sys.modules:
+            sys.modules["retriever"].reset_mock()
 
     def test_service_initialization(self):
         """Test RetrievalService initializes with correct parameters."""
