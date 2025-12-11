@@ -120,22 +120,22 @@ graph LR
 ```
 
 
-🧱 Component Breakdown and Responsibilities
+## **🧱 Component Breakdown and Responsibilities**
 
 | Component | Function / Role |
 | :---- | :---- | :---- |
-| Ingestion Service | Discovers new documents (e.g., MARP PDFs) and initiates the ingestion pipeline by publishing an event. |
-| Extraction Service | Consumes the discovery event, extracts text and metadata from documents using tools like pdfplumber, and publishes the extracted data. |
-| Indexing Service | Consumes extracted data, chunks documents semantically, generates vector embeddings, and persists data to the databases. |
-| Retrieval Service | Handles the semantic search functionality for the RAG flow, querying Qdrant to retrieve relevant document chunks. |
-| Chat Service | Serves as the central coordinator for the RAG query flow (FastAPI), managing the sequence of calls and formatting the final answer. |
-| Orchestrator | Executes the Multi-Model Comparison feature by sending RAG context to multiple external LLM APIs concurrently. |
-| Auth Service | Manages user authentication and authorization using data from PostgreSQL. |
-| API Gateway | The single point of entry; routes external HTTP/S requests to the correct internal microservice. |
-| Qdrant | The high-performance Vector Database for storing and indexing document embeddings for semantic search. |
-| RabbitMQ | The Event Broker used to implement the Asynchronous Event-Driven Architecture for the document ingestion pipeline. |
-| PostgreSQL | The relational User Database used for user data, authentication details, and document ingestion metadata. |
-| LLM APIs (External) | Third-party interfaces for Large Language Models accessed by the Orchestrator for content generation. |
+| **Ingestion Service** | Discovers new documents (e.g., MARP PDFs) and initiates the ingestion pipeline by publishing an event. |
+| **Extraction Service** | Consumes the discovery event, extracts text and metadata from documents using tools like pdfplumber, and publishes the extracted data. |
+| **Indexing Service** | Consumes extracted data, chunks documents semantically, generates vector embeddings, and persists data to the databases. |
+| **Retrieval Service** | Handles the semantic search functionality for the RAG flow, querying Qdrant to retrieve relevant document chunks. |
+| **Chat Service** | Serves as the central coordinator for the RAG query flow (FastAPI), managing the sequence of calls and formatting the final answer. |
+| **Orchestrator** | Executes the Multi-Model Comparison feature by sending RAG context to multiple external LLM APIs concurrently. |
+| **Auth Service** | Manages user authentication and authorization using data from PostgreSQL. |
+| **API Gateway** | The single point of entry; routes external HTTP/S requests to the correct internal microservice. |
+| **Qdrant** | The high-performance Vector Database for storing and indexing document embeddings for semantic search. |
+| **RabbitMQ** | The Event Broker used to implement the Asynchronous Event-Driven Architecture for the document ingestion pipeline. |
+| **PostgreSQL** | The relational User Database used for user data, authentication details, and document ingestion metadata. |
+| **LLM APIs** (External) | Third-party interfaces for Large Language Models accessed by the Orchestrator for content generation. |
 
 ## **4\. How It Works: Key Scenarios**
 
@@ -392,6 +392,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
