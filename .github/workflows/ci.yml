@@ -193,7 +193,7 @@ jobs:
   e2e-tests:
     name: End-to-End Tests
     runs-on: ubuntu-22.04
-    needs: [docker-build]
+    needs: [integration-tests]
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -231,6 +231,11 @@ jobs:
           # Wait for all builds to complete
           wait
           echo "All service images built successfully"
+
+      - name: Install Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin
 
       - name: Start Docker Compose services
         run: |
