@@ -7,7 +7,7 @@ Tests the full document lifecycle:
 3. Indexing: Chunking and vector embedding
 4. Retrieval: Search and relevance ranking
 
-Uses actual MARP PDFs from data/documents/pdfs for realistic testing.
+Uses actual MARP PDFs from tests/pdfs for realistic testing.
 """
 
 import tempfile

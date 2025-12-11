@@ -15,7 +15,7 @@ AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth:8006")
 
 
 async def verify_user(
-    user_id: Annotated[Optional[str], Header(alias="user-id")] = None
+    user_id: Annotated[Optional[str], Header(alias="user-id")] = None,
 ) -> int:
     """
     Verifies user exists by calling auth service.

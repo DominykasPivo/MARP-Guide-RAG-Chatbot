@@ -42,7 +42,7 @@ jobs:
         run: pip install types-requests==2.31.0.20240406 types-aiofiles==23.2.0.20240403
 
       - name: Run mypy (type check)
-        run: mypy services/
+        run: mypy services/ --explicit-package-bases
 
   security-scan:
     runs-on: ubuntu-22.04
@@ -189,3 +189,110 @@ jobs:
       - name: Test Docker image
         run: |
           docker run --rm marp-${{ matrix.service }}:test python --version
+
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-22.04
+    needs: [docker-build]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest requests pytest-cov coverage
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Free up disk space
+        run: |
+          docker system prune -af --volumes
+          df -h
+
+      - name: Build service images in parallel
+        run: |
+          # Build all service images in parallel for faster builds
+          docker build -f services/auth/Dockerfile -t marp-auth:e2e services/auth &
+          docker build -f services/ingestion/Dockerfile -t marp-ingestion:e2e services/ingestion &
+          docker build -f services/extraction/Dockerfile -t marp-extraction:e2e services/extraction &
+          docker build -f services/indexing/Dockerfile -t marp-indexing:e2e services/indexing &
+          docker build -f services/retrieval/Dockerfile -t marp-retrieval:e2e services/retrieval &
+          docker build -f services/chat/Dockerfile -t marp-chat:e2e services/chat &
+          
+          # Wait for all builds to complete
+          wait
+          echo "All service images built successfully"
+
+      - name: Start Docker Compose services
+        run: |
+          docker-compose -f docker-compose.e2e.yml up -d
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          # Check each service health
+          services=("8001" "8002" "8003" "8004" "8005" "8006")
+          for port in "${services[@]}"; do
+            echo "Checking service on port $port..."
+            max_attempts=30
+            attempt=0
+            
+            while [ $attempt -lt $max_attempts ]; do
+              if curl -f http://localhost:$port/health > /dev/null 2>&1; then
+                echo "✅ Service on port $port is healthy"
+                break
+              fi
+              echo "⏳ Waiting for service on port $port... (attempt $((attempt+1))/$max_attempts)"
+              sleep 5
+              attempt=$((attempt+1))
+            done
+            
+            if [ $attempt -eq $max_attempts ]; then
+              echo "❌ Service on port $port failed to become healthy"
+              docker-compose -f docker-compose.e2e.yml logs
+              exit 1
+            fi
+          done
+
+      - name: Run E2E tests
+        run: |
+          pytest tests/e2e/ -v --tb=short --maxfail=5 --cov=services --cov-report=xml:coverage/e2e.xml --cov-report=html:coverage/e2e_html
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/e2e.xml
+          flags: e2e-tests
+          name: e2e-tests
+
+      - name: Upload HTML coverage report (e2e)
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage-html-e2e
+          path: coverage/e2e_html
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker Compose Services Logs ==="
+          docker-compose -f docker-compose.e2e.yml logs --tail=100
+
+      - name: Stop Docker Compose services
+        if: always()
+        run: |
+          docker-compose -f docker-compose.e2e.yml down -v

@@ -1,0 +1,173 @@
+version: '3.8'
+
+services:
+  # Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-e2e
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-e2e
+    ports:
+      - "6333:6333"
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Auth
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-e2e
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Auth Service
+  auth:
+    image: marp-auth:e2e
+    container_name: auth-e2e
+    ports:
+      - "8001:8000"
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Ingestion Service
+  ingestion:
+    image: marp-ingestion:e2e
+    container_name: ingestion-e2e
+    ports:
+      - "8002:8000"
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Extraction Service
+  extraction:
+    image: marp-extraction:e2e
+    container_name: extraction-e2e
+    ports:
+      - "8003:8000"
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Indexing Service
+  indexing:
+    image: marp-indexing:e2e
+    container_name: indexing-e2e
+    ports:
+      - "8004:8000"
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Retrieval Service
+  retrieval:
+    image: marp-retrieval:e2e
+    container_name: retrieval-e2e
+    ports:
+      - "8005:8000"
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Chat Service
+  chat:
+    image: marp-chat:e2e
+    container_name: chat-e2e
+    ports:
+      - "8006:8000"
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RETRIEVAL_SERVICE_URL: http://retrieval:8000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-test-key}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      retrieval:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  default:
+    name: marp-e2e-network
