@@ -74,4 +74,4 @@ This backlog contains all known features, user stories, and technical debt requi
 ## **2. What Could Be Improved?**
 
 * **Documentation Updates:** Some team members found it challenging to keep up with the changes in API endpoints during the transition. **Action:** Dedicate time for documentation updates in future sprints.
-* **Time Management** While progress was made, we fell short on time during the sprint. **Action:** Allocate more time to group mates and schedule more meetings.
+* **Time Managment** While progress was made, we fell short on time during the sprint. **Action:** Allocate more time to group mates and schedule more meetings.
