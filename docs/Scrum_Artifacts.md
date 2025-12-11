@@ -47,7 +47,7 @@ This backlog contains all known features, user stories, and technical debt requi
 # **Sprint 2 Log: Enhancements and Transition to FastAPI**
 
 * **Sprint Goal:** Enhance system capabilities, transition from Flask to FastAPI, and improve testing coverage.
-* **Duration:** 4 Weeks
+* **Duration:** 5 Weeks
 * **Team Capacity:** 3
 
 | Item ID | Description | Backlog Item | Status | Notes |
@@ -70,3 +70,4 @@ This backlog contains all known features, user stories, and technical debt requi
 
 * **Documentation Updates:** Some team members found it challenging to keep up with the changes in API endpoints during the transition. **Action:** Dedicate time for documentation updates in future sprints.
 * **Test Coverage:** While progress was made, we fell short of the 80% coverage goal. **Action:** Allocate more time for writing and reviewing tests in the next sprint.
+
