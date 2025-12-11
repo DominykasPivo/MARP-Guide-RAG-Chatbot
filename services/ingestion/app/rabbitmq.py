@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-import random
+import secrets
 from typing import Optional
 
 import pika
@@ -36,7 +36,7 @@ class EventPublisher:
         """Calculate delay with exponential backoff and jitter."""
         delay: float = min(INITIAL_RETRY_DELAY * (2**attempt), MAX_RETRY_DELAY)
         jitter = delay * JITTER_RANGE
-        delay += random.uniform(-jitter, jitter)  # nosec B311
+        delay += (secrets.randbelow(int(jitter * 2 * 1000)) / 1000.0) - jitter
         return max(0.0, delay)
 
     def _connect(self) -> bool:
@@ -179,7 +179,7 @@ def get_connection(
 ) -> Optional[pika.BlockingConnection]:
     """Get RabbitMQ connection with retries."""
     if retry_delay is None:
-        retry_delay = random.randint(1, 5)
+        retry_delay = secrets.randbelow(5) + 1
     return None
 
 
