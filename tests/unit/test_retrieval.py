@@ -14,8 +14,14 @@ Target files:
 - services/retrieval/app/retrieval_rabbitmq.py
 """
 
-import json
 import sys
+from unittest.mock import Mock
+
+sys.modules["retrieval_rabbitmq"] = Mock()
+sys.modules["retrieval_events"] = Mock()
+sys.modules["retriever"] = Mock()
+
+import json
 from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
 
