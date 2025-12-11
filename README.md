@@ -244,22 +244,25 @@ graph LR
 
    # Windows PowerShell
    Copy-Item .env.example .env
+   
+   - Edit the `.env` file to configure API keys
    ```
-   - Edit the `.env` file to configure API keys, database credentials, and other settings.
-
 3. **Start all services**:
    ```bash
-   docker-compose up --build -d
+   docker-compose up --build --no-cache
    ```
 
 4. **Access the application**:
-   - **Frontend**: [http://localhost:8004](http://localhost:8004)
+   - **Frontend**: [http://localhost:8005] (In Browser)
    - **RabbitMQ Management**: [http://localhost:15672](http://localhost:15672) (default credentials: `guest/guest`)
 
 5. **Verify service health**:
-   - **Auth Service**: [http://localhost:8001/health](http://localhost:8001/health)
-   - **Chat Service**: [http://localhost:8005/health](http://localhost:8005/health)
-
+   - **Auth Service**: [http://localhost:8001/health]
+   - **Chat Service**: [http://localhost:8005/health]
+   - **Retrieval Service**:[http://localhost:8004/health]
+   - **Extraction Service**:[http://localhost:8002/health]
+   -**Ingestion Service**:[http://localhost:8001/health]
+   -**Indexing Service**:[http://localhost:8003]
 ---
 
 ### **Development Setup**
@@ -279,14 +282,12 @@ For local development without Docker:
 
 3. **Start infrastructure**:
    ```bash
-   docker-compose up rabbitmq qdrant
+   docker-compose up
    ```
 
 4. **Run services individually**:
    ```bash
-   # Example: Running the Chat Service
-   cd services/chat
-   python -m app.app
+  docker-compose up chat 
    ```
 
 5. **Verify service health**:
