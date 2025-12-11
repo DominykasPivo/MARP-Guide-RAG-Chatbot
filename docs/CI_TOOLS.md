@@ -34,8 +34,8 @@ Tools used in this project:
 | mypy     | 1.19.0  | Type checking     | Static type analysis using type hints             |
 | bandit   | 1.9.2   | Security scanning | Scans code for common security issues             |
 | safety   | 3.7.0   | Security scanning | Checks dependencies for known vulnerabilities     |
-| pytest-cov | 5.0.0 | Local Test coverage| Local coverage reporting for pytest |
-| Codecov | - | Cloud Test coverage  | Cloud service that collecs coverage reports |
+| pytest-cov | 5.0.0 | Test coverage| Pytest plugin for measuring code coverage |
+| coverage | 7.5.1 | Test coverage  | Core coverage measurement library used by pytest-cov |
 
 ### Type Stubs
 | Package          | Version              | Purpose                              |
@@ -57,30 +57,30 @@ To ensure code quality and consistency, run the following commands locally befor
 
 ### Linting
 ```
-flake8 src/ tests/
+flake8 services/ tests/
 ```
 
 ### Formatting (apply changes)
 ```
-black src/ tests/
-isort src/ tests/
+black services/ tests/
+isort services/ tests/
 ```
 
 ### Formatting (check only, for CI)
 ```
-black --check src/ tests/
-isort --check-only src/ tests/
+black --check services/ tests/
+isort --check-only services/ tests/
 ```
 
 ### Type Checking
 ```
-mypy src/
+mypy services/
 ```
 
 ### Security Scanning
 ```
-bandit -r src/
-safety scan -r requirements.txt
+bandit -r services/
+safety check --policy-file ... -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt
 ```
 
 ## CI Workflow Steps
@@ -107,7 +107,13 @@ The CI pipeline runs multiple jobs in parallel using Python 3.11 (and 3.10, 3.12
 2. **Setup Python:** `actions/setup-python@v5` with Python 3.11
 3. **Install tools:** `pip install bandit==1.9.2 safety==3.7.0`
 4. **Code security scan:** `bandit -r services/`
-5. **Dependency security scan:** `safety check --policy-file .github/workflows/.safety-policy.yml -r [all service requirements files]`
+ 5. **Dependency security scan:**
+   `safety check --policy-file .github/workflows/.safety-policy.yml \
+   -r services/ingestion/requirements.txt \
+   -r services/extraction/requirements.txt \
+   -r services/indexing/requirements.txt \
+   -r services/chat/requirements.txt \
+   -r services/retrieval/requirements.txt`
 
 ### Unit-Tests Job (Matrix: Python 3.10, 3.11, 3.12)
 Runs unit tests with coverage across multiple Python versions in parallel.
