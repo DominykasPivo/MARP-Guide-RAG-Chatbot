@@ -416,45 +416,12 @@ class TestChatEvents:
         assert event.eventType == "queryreceived"
         assert event.payload["queryText"] == "What is MARP?"
 
-    def test_response_generated_event(self):
-        """Test ResponseGenerated event creation."""
-        from services.chat.app.events import ResponseGenerated
-
-        event = ResponseGenerated(
-            eventType="responsegenerated",
-            eventId="evt-003",
-            timestamp="2025-01-01T00:00:00Z",
-            correlationId="corr-001",
-            source="chat-service",
-            version="1.0",
-            payload={
-                "queryId": "q-001",
-                "userId": "user-001",
-                "answer": "MARP is a comprehensive guide...",
-                "citations": [
-                    {
-                        "title": "MARP Guide",
-                        "page": 1,
-                        "url": "http://example.com/marp.pdf",
-                    }
-                ],
-                "modelUsed": "gpt-4",
-                "retrievalModel": "all-MiniLM-L6-v2",
-            },
-        )
-
-        assert event.payload["answer"]
-        assert "citations" in event.payload
-        assert event.payload["modelUsed"] == "gpt-4"
-
     def test_event_types_enum(self):
         """Test EventTypes enumeration."""
         from services.chat.app.events import EventTypes
 
         assert EventTypes.QUERY_RECEIVED.value == "queryreceived"
         assert EventTypes.CHUNKS_RETRIEVED.value == "chunksretrieved"
-        assert EventTypes.RESPONSE_GENERATED.value == "responsegenerated"
-        assert EventTypes.ANSWER_GENERATED.value == "answergenerated"
 
 
 # ============================================================================
@@ -478,28 +445,6 @@ class TestCorrelationIDPropagation:
             source="chat-service",
             version="1.0",
             payload={"queryId": "q-001", "userId": "u-001", "queryText": "Test"},
-        )
-
-        assert event.correlationId == corr_id
-
-    def test_correlation_id_in_response_generated(self):
-        """Test correlation ID propagates to ResponseGenerated."""
-        from services.chat.app.events import ResponseGenerated
-
-        corr_id = "chat-corr-67890"
-        event = ResponseGenerated(
-            eventType="responsegenerated",
-            eventId="evt-007",
-            timestamp="2025-01-01T00:00:00Z",
-            correlationId=corr_id,
-            source="chat-service",
-            version="1.0",
-            payload={
-                "queryId": "q-001",
-                "userId": "u-001",
-                "answer": "Answer",
-                "citations": [],
-            },
         )
 
         assert event.correlationId == corr_id

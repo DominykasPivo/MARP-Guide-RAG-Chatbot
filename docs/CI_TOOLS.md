@@ -1,3 +1,4 @@
+
 # README for pyproject.toml
 
 This file (`pyproject.toml`) is the central configuration for Python tooling in this project. It defines settings for build systems, dependencies, and code quality tools.

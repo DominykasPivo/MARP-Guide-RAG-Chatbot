@@ -145,6 +145,8 @@ pytest tests/integration/ -v
 pytest tests/integration/ --cov --cov-report=html:coverage/integration_html --cov-report=xml:coverage/integration.xml
 ```
 
+<<<<<<< HEAD:docs/TEST_INFO.md
+=======
 ### Run System (E2E) Tests in Docker
 
 ```bash
@@ -155,6 +157,7 @@ docker-compose -f docker-compose.test.yml up --abort-on-container-exit
 docker-compose -f docker-compose.test.yml down -v
 ```
 
+>>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee:tests/TEST_INFO.md
 ---
 
 ## Unit Tests

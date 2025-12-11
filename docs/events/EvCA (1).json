@@ -59,7 +59,6 @@
       "eventType": "QueryReceived",
       "eventId": "string",
       "timestamp": "string",
-      "correlationId": "string",
       "source": "chat-service",
       "version": "1.0",
       "payload": {
@@ -68,30 +67,11 @@
         "queryText": "string"
       }
     },
-    {
-      "eventType": "ChunksRetrieved",
-      "eventId": "string",
-      "timestamp": "string",
-      "correlationId": "string",
-      "source": "retrieval-service",
-      "version": "1.0",
-      "payload": {
-        "queryId": "string",
-        "retrievedChunks": [
-          {
-            "chunkId": "string",
-            "documentId": "string",
-            "relevanceScore": "number"
-          }
-        ],
-        "retrievalModel": "string"
-      }
-    },
+
     {
       "eventType": "RetrievalCompleted",
       "eventId": "string",
       "timestamp": "string",
-      "correlationId": "string",
       "source": "retrieval-service",
       "version": "1.0",
       "payload": {

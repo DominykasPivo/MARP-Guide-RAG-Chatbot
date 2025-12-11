@@ -5,7 +5,8 @@ import uuid
 from typing import Optional
 
 import httpx
-from events import publish_query_event
+from consumers import start_consumer_thread
+from events import publish_query_received_event
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +21,6 @@ class ChatRequestModel(BaseModel):
 
 
 # Configure logging
-
 logger = logging.getLogger("chat")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(
@@ -57,6 +57,14 @@ if not OPENROUTER_API_KEY:
     logger.warning("⚠️ OPENROUTER_API_KEY is not set; LLM calls will fail.")
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Start background event consumers on app startup"""
+    logger.info("🚀 Starting Chat Service...")
+    start_consumer_thread()
+    logger.info("✅ Chat Service ready")
+
+
 def filter_top_citations(
     citations: list[Citation], top_n: int = 3, min_citations: int = 2
 ) -> list[Citation]:
@@ -76,7 +84,6 @@ def filter_top_citations(
     sorted_citations = sorted(citations, key=lambda c: c.score, reverse=True)
     num_to_return = max(min_citations, min(len(sorted_citations), top_n))
     result = sorted_citations[:num_to_return]
-    # Deduplicate citations by (title, page)
     seen = set()
     deduped = []
     for c in result:
@@ -92,9 +99,8 @@ def filter_top_citations(
     return deduped
 
 
-# Async version of chunk retrieval
 async def get_chunks_via_http_async(query: str):
-    """Get chunks from retrieval service via HTTP asynchronously."""
+    """Get chunks from retrieval service via HTTP."""
     try:
         logger.info(
             f"🔍 Querying retrieval service via HTTP: " f"{RETRIEVAL_SERVICE_URL}"
@@ -157,7 +163,7 @@ async def chat(request: Request, chat_request: ChatRequestModel):
             f"(correlation_id: {correlation_id})"
         )
 
-        # Use selected models or fall back to all configured models
+        # Use selected models or fall back to all configured
         models_to_use = (
             chat_request.selected_models if chat_request.selected_models else LLM_MODELS
         )
@@ -168,8 +174,11 @@ async def chat(request: Request, chat_request: ChatRequestModel):
 
         logger.info(f"🤖 Using models: {models_to_use}")
 
-        # ✅ PUBLISH queryreceived EVENT - THIS IS THE KEY ADDITION
-        publish_query_event(query, correlation_id)
+        # ✅ PUBLISH QueryReceived EVENT
+        # Fire-and-forget tracking (won't affect HTTP logic)
+        publish_query_received_event(
+            query_text=query, query_id=correlation_id, user_id="anonymous"
+        )
 
         # Get chunks via HTTP (async)
         logger.info("📊 Fetching chunks from retrieval service (async)...")
@@ -177,15 +186,14 @@ async def chat(request: Request, chat_request: ChatRequestModel):
 
         if not chunks_data:
             logger.warning(
-                "⚠️ No chunks found for query; returning multi-LLM " "fallback response"
+                "⚠️ No chunks found for query; " "returning multi-LLM fallback response"
             )
-            # Return a response per selected model to keep schema consistent
             fallback_responses = [
                 LLMResponse(
                     model=m.strip(),
                     answer=(
-                        "I couldn't find any relevant information to "
-                        "answer your question."
+                        "I couldn't find any relevant information "
+                        "to answer your question."
                     ),
                     citations=[],
                     generation_time=0.0,
@@ -201,7 +209,7 @@ async def chat(request: Request, chat_request: ChatRequestModel):
 
         # Generate answers from multiple LLMs in parallel
         logger.info(
-            f"🤖 Generating answers from {len(models_to_use)} models " f"in parallel..."
+            f"🤖 Generating answers from {len(models_to_use)} " f"models in parallel..."
         )
         llm_responses = await generate_answers_parallel(
             query, chunks, api_key=OPENROUTER_API_KEY, models=models_to_use
@@ -212,7 +220,7 @@ async def chat(request: Request, chat_request: ChatRequestModel):
             response.citations = filter_top_citations(response.citations, top_n=3)
 
         logger.info(
-            f"✅ Generated {len(llm_responses)} responses with filtered " f"citations"
+            f"✅ Generated {len(llm_responses)} responses " f"with filtered citations"
         )
 
         response = ChatResponse(query=query, responses=llm_responses)
