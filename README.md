@@ -1,5 +1,4 @@
 ![CI](https://github.com/DominykasPivo/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml/badge.svg)
-[![codecov](https://codecov.io/gh/DominykasPivo/MARP-Guide-RAG-Chatbot/branch/main/graph/badge.svg)](https://codecov.io/gh/DominykasPivo/MARP-Guide-RAG-Chatbot)
 
 # MARP-Guide-RAG-Chatbot
 LZSCC.311  - Year 3 Group Project
@@ -45,12 +44,17 @@ RAG Chatbot with Microservices and Event-Driven Architecture
 
 4. **Access the application**:
    - **Frontend**: [http://localhost:8005](http://localhost:8005)
-   - **Ingestion API**: [http://localhost:8001](http://localhost:8001)
    - **RabbitMQ Management**: [http://localhost:15672](http://localhost:15672) (default credentials: `guest/guest`)
 
 5. **Verify service health**:
-   - **Auth Service**: [http://localhost:8001/health](http://localhost:8001/health)
+   - **Auth Service**: [http://localhost:8006/health](http://localhost:8006/health)
    - **Chat Service**: [http://localhost:8005/health](http://localhost:8005/health)
+   - **Retrieval Service**: [http://localhost:8004/health](http://localhost:8004/health)
+   - **Extraction Service**: [http://localhost:8002/health](http://localhost:8002/health)
+   - **Ingestion Service**: [http://localhost:8001/health](http://localhost:8001/health)
+   - **Qdrant Service**:   [http://localhost:6333](http://localhost:6333)
+   - **Indexing Service**:   [http://localhost:8003](http://localhost:8003)
+
 
 ---
 
@@ -518,7 +522,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
-
-
 =======
 

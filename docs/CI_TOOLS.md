@@ -34,7 +34,8 @@ Tools used in this project:
 | mypy     | 1.19.0  | Type checking     | Static type analysis using type hints             |
 | bandit   | 1.9.2   | Security scanning | Scans code for common security issues             |
 | safety   | 3.7.0   | Security scanning | Checks dependencies for known vulnerabilities     |
-| pytest-cov | 5.0.0 | Test coverage     | Coverage reporting for pytest                     |
+| pytest-cov | 5.0.0 | Local Test coverage| Local coverage reporting for pytest |
+| Codecov | - | Cloud Test coverage  | Cloud service that collecs coverage reports |
 
 ### Type Stubs
 | Package          | Version              | Purpose                              |
