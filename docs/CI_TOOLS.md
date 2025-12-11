@@ -81,7 +81,7 @@ mypy services/ --explicit-package-bases
 ### Security Scanning
 ```
 bandit -r services/
-safety check --policy-file ... -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt -r services/auth/requirements.txt
+safety check --policy-file .github/workflows/.safety-policy.yml -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt -r services/auth/requirements.txt
 ```
 
 ## CI Workflow Steps
