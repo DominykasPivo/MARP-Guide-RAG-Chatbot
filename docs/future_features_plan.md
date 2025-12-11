@@ -13,23 +13,23 @@ This feature ensures secure user authentication, session handling, and user-spec
 * **AuthService:** Handles user registration, login, password hashing, JWT generation, and token validation.
 * **API Gateway:** Acts as the authorization barrier, validating JWTs for all protected routes and forwarding the authenticated user ID to downstream services.
 * **Session Management:** Ensures that each user’s session is securely managed and isolated.
-* **Data Isolation:** All user-specific data (e.g., chat history, document ingestion) is scoped by the authenticated user ID.
+* **Data Isolation:** All user-specific data (e.g., chat history, document ingestion) is scoped by the authenticated user ID using Qdrant.
 
 ### **1.3 Implementation Plan**
 
 | Step | Service | Description |
 | :---- | :---- | :---- |
-| **1. User DB Schema** | AuthService | Updated the PostgreSQL schema to include tables for users (id, password_hash, created_at) and sessions. |
+| **1. User DB Schema** | AuthService | Updated the PostgreSQL schema to include tables for users (id, email, password_hash, created_at) and sessions. |
 | **2. Auth Logic** | AuthService | Implemented endpoints for /register and /login. Used **Bcrypt** for secure password hashing. JWTs are generated on successful login. |
 | **3. Gateway Authorization** | API Gateway | Middleware validates JWTs for protected routes, extracts the user ID, and injects it into the request headers. |
-| **4. Scoped Retrieval** | RetrievalService | Modified to retrieve user-specific data using the user ID from the request headers. |
+| **4. Scoped Retrieval** | RetrievalService | Modified to retrieve user-specific data using the user ID from the request headers and Qdrant collections. |
 | **5. Frontend Integration** | Static Frontend | Added login/logout functionality and stored JWTs securely in HttpOnly cookies. Included JWTs in all API calls. |
 
 ### **1.4 Implementation Details**
 
 * **Backend:** FastAPI was used to implement the AuthService and API Gateway. JWTs were chosen for stateless authentication, ensuring scalability.
 * **Frontend:** The static frontend was updated to include login and logout functionality. User sessions are managed using secure cookies.
-* **Data Isolation:** PostgreSQL and ChromaDB queries were updated to scope all data operations by the authenticated user ID.
+* **Data Isolation:** PostgreSQL and Qdrant queries were updated to scope all data operations by the authenticated user ID.
 
 ---
 
