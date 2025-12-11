@@ -61,11 +61,7 @@ This backlog contains all known features, user stories, and technical debt requi
 | **S2-01** | Transition API Gateway from Flask to FastAPI. | PBL-03 | DONE | Improved performance and simplified async handling. |
 | **S2-02** | Update Orchestrator to FastAPI and integrate with updated API Gateway. | PBL-01 | DONE | Required changes to routing and middleware. |
 | **S2-03** | Implement mock AuthService for early integration testing. | PBL-07 | DONE | Enabled faster end-to-end testing. |
-<<<<<<< HEAD
-| **S2-04** | Add unit tests for ChatService and RetrievalService. | PBL-08 | IN PROGRESS | Targeting 80% coverage. |
-=======
-| **S2-04** | Add unit tests for ChatService and RetrievalService. | PBL-08 | DONE | Targeting the entirety of it. |
->>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
+| **S2-04** | Add unit tests and integration tests to test all services | PBL-08 | IN PROGRESS | Targeting over 70% of total service coverage. |
 | **S2-05** | Enhance React frontend with conversation history and error handling. | PBL-05 | DONE | Improved user experience and debugging. |
 
 # **Team Retrospective: Sprint 2 (Enhancements and Transition)**
