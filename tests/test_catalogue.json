@@ -1,6 +1,10 @@
 [
   {
+<<<<<<< HEAD
     "query": "What does the Academic Standards and Quality Committee (ASQC) oversee?",
+=======
+    "query": "What do Academic Standards and Quality Committee (ASQC) oversight?",
+>>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
     "expected_citations": [
       {
         "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Intro-to-MARP.pdf",
@@ -54,6 +58,27 @@
     ]
   },
   {
+<<<<<<< HEAD
+=======
+    "query": "How many credits are required for a standard Masters degree?",
+    "expected_citations": [
+      {
+        "url": "",
+        "page": 4
+      }
+    ]
+  },
+  {
+    "query": "How many credits are required for a standard Masters degree?",
+    "expected_citations": [
+      {
+        "url": "https://www.lancaster.ac.uk/media/lancaster-university/content-assets/documents/student-based-services/asq/marp/Academic-Integrity-Regs.pdf",
+        "page": 8
+      }
+    ]
+  },
+  {
+>>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
     "query": "What happens if I’m excluded for failing?",
     "expected_citations": [
       {

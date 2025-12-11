@@ -91,7 +91,6 @@ def filter_top_citations(
         if key not in seen:
             deduped.append(c)
             seen.add(key)
-
     citation_info = [(c.title, c.page, c.score) for c in deduped]
     logger.info(
         f"✅ Returning {len(deduped)} citations after filtering and deduplication: "

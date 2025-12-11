@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides comprehensive information about the testing infrastructure for the MARP Guide RAG Chatbot project. The project uses a multi-layered testing approach with both unit and integration tests to ensure code quality, reliability, and maintainability.
+This document provides comprehensive information about the testing infrastructure for the MARP Guide RAG Chatbot project. The project uses a multi-layered testing approach with unit, integration, and system (E2E) tests to ensure code quality, reliability, and maintainability. Integration tests in this project use fakes and mocks for external dependencies, while system tests validate the full stack with all services running.
 
 ### Test Statistics
 
@@ -31,17 +31,20 @@ This document provides comprehensive information about the testing infrastructur
 
 The project follows a **pyramid testing strategy**:
 
-1. **Unit Tests (Foundation)** - Fast, isolated tests for individual components
-2. **Integration Tests (Middle)** - Tests for service interactions and workflows
-3. **System Tests (Top)** - Docker-based validation of complete system
+1. **Unit Tests (Foundation)** – Fast, isolated tests for individual functions, classes, and modules using mocks and stubs.
+2. **Integration Tests (Middle)** – Validate service interactions and workflows, primarily using fakes and mocks to simulate external dependencies (e.g., fake vector DBs, fake storage, mocked APIs). These tests do not require the full application stack to be running and are designed for speed and reliability.
+3. **System Tests (Top)** – Docker-based validation of the complete system, with all services running for true end-to-end (E2E) testing. These tests exercise the full deployed stack and validate real service interactions.
+
+**Note:** Integration tests in this project use fakes and mocks for external dependencies, allowing for fast feedback and deterministic results. For full E2E validation, use the system tests with Docker Compose.
 
 ### Testing Principles
 
-- **Isolation**: Unit tests should not depend on external services
+- **Isolation**: Unit and integration tests avoid real external services by using mocks and fakes
 - **Speed**: Fast feedback loop for developers
 - **Reliability**: Deterministic tests that pass consistently
 - **Coverage**: Comprehensive coverage of critical paths
 - **Maintainability**: Clear, readable test code
+- **Realism**: System/E2E tests validate the full stack with real service interactions
 
 ---
 
@@ -142,11 +145,24 @@ pytest tests/integration/ -v
 pytest tests/integration/ --cov --cov-report=html:coverage/integration_html --cov-report=xml:coverage/integration.xml
 ```
 
+<<<<<<< HEAD:docs/TEST_INFO.md
+=======
+### Run System (E2E) Tests in Docker
+
+```bash
+# Run system/E2E tests in isolated containers (all services up)
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+
+# Clean up after tests
+docker-compose -f docker-compose.test.yml down -v
+```
+
+>>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee:tests/TEST_INFO.md
 ---
 
 ## Unit Tests
 
-Unit tests focus on testing individual functions, classes, and modules in isolation.
+Unit tests focus on testing individual functions, classes, and modules in isolation using mocks and stubs.
 
 ### Test Summary
 
@@ -224,7 +240,7 @@ def test_health_endpoint():
 
 ## Integration Tests
 
-Integration tests validate interactions between multiple components and services.
+Integration tests validate interactions between multiple components and services, using fakes and mocks for external dependencies. These tests do not require the full application stack to be running and are designed for speed and reliability.
 
 ### Test Summary
 
@@ -234,70 +250,38 @@ Integration tests validate interactions between multiple components and services
 
 ### Test Scenarios
 
-#### 1. Document Ingestion Flow
+1. **Document Ingestion Flow** (`test_ingestion_flow.py`):
+   - Document discovery from URL (using fakes)
+   - PDF download and extraction (mocked)
+   - Storage in file system (fake storage)
+   - Event publishing to RabbitMQ (mocked)
 
-**File:** `test_ingestion_flow.py`
+2. **Indexing Flow** (`test_indexing_flow.py`):
+   - Semantic chunking with token limits
+   - Embedding generation (mocked)
+   - Vector storage in Qdrant (fake client)
+   - Event publishing (mocked)
 
-Tests the complete document ingestion pipeline:
-- Document discovery from URL
-- PDF download and extraction
-- Storage in file system
-- Event publishing to RabbitMQ
+3. **Search API Integration** (`test_search_api.py`):
+   - Query endpoint
+   - Vector similarity search (mocked)
+   - Result ranking and filtering
+   - Response formatting
 
-```python
-def test_ingestion_pipeline():
-    """Test complete ingestion workflow"""
-    # 1. Discover documents
-    docs = discover_documents(source_url)
-
-    # 2. Extract content
-    extracted = extract_pdf(docs[0])
-
-    # 3. Store document
-    doc_id = store_document(extracted)
-
-    # 4. Verify event published
-    assert event_published("document.ingested", doc_id)
-```
-
-#### 2. Indexing Flow
-
-**File:** `test_indexing_flow.py`
-
-Tests document chunking and vector embedding:
-- Semantic chunking with token limits
-- Embedding generation
-- Vector storage in Qdrant
-- Event publishing
-
-#### 3. Search API Integration
-
-**File:** `test_search_api.py`
-
-Tests the retrieval service API:
-- Query endpoint
-- Vector similarity search
-- Result ranking and filtering
-- Response formatting
-
-#### 4. Event-Driven Workflows
-
-**File:** `test_end_to_end_flow.py`
-
-Tests RabbitMQ event handling and complete workflows:
-- Event consumption and schema validation
-- Message processing across services
-- Error handling and retries
-- Event correlation
-- End-to-end pipeline integration
+4. **Event-Driven Workflows** (`test_end_to_end_flow.py`):
+   - Event consumption and schema validation
+   - Message processing across services (using fakes)
+   - Error handling and retries
+   - Event correlation
+   - End-to-end pipeline integration (simulated)
 
 ### Integration Test Best Practices
 
-1. **Use Fakes/Stubs**: Create lightweight fakes for external services
+1. **Use Fakes/Stubs/Mocks**: Create lightweight fakes and mocks for external services and dependencies
 2. **Test Boundaries**: Focus on service interactions, not internal logic
 3. **Clean State**: Reset state between tests
 4. **Realistic Data**: Use production-like test data
-5. **End-to-End Flows**: Test complete user scenarios
+5. **End-to-End Flows**: For true E2E, use system tests with all services running
 
 ---
 
@@ -621,7 +605,7 @@ When adding new features:
 
 This testing guide provides comprehensive information about:
 - ✅ Test structure and organization
-- ✅ Running unit and integration tests
+- ✅ Running unit, integration, and system (E2E) tests
 - ✅ Code coverage measurement
 - ✅ CI/CD integration
 - ✅ Writing effective tests

@@ -8,24 +8,83 @@ RAG Chatbot with Microservices and Event-Driven Architecture
 
 ## 🚀 Quick Start
 
-1. **Copy environment configuration:**
+## **Setup and Run Instructions**
+
+### **Prerequisites**
+
+1. **Docker**: Install Docker (20.10+) and Docker Compose (or Docker Desktop) on your system.
+2. **Git**: Clone this repository.
+3. **API Keys**: Obtain an OpenRouter API key for LLM access (or configure an alternative LLM provider).
+
+---
+
+1. **Clone the repository**:
    ```bash
+   git clone https://github.com/DominykasPivo/MARP-Guide-RAG-Chatbot.git
+   cd MARP-Guide-RAG-Chatbot
+   ```
+
+2. **Set up environment variables**:
+   ```bash
+   # Linux/Mac
    cp .env.example .env
-   ```
 
-2. **Add your OpenRouter API key to `.env`:**
-   ```env
-   OPENROUTER_API_KEY=your-api-key-here
+   # Windows PowerShell
+   Copy-Item .env.example .env
    ```
+   - Edit the `.env` file to configure API keys, database credentials, and other settings.
+   - Add your OpenRouter API key:
+     ```env
+     OPENROUTER_API_KEY=your-api-key-here
+     ```
 
-3. **Start the services:**
+3. **Start all services**:
    ```bash
-   docker-compose up -d
+   docker-compose up --build -d
    ```
 
-4. **Access the chat interface:**
-   - Chat UI: http://localhost:8005
-   - Ingestion API: http://localhost:8001
+4. **Access the application**:
+   - **Frontend**: [http://localhost:8005](http://localhost:8005)
+   - **Ingestion API**: [http://localhost:8001](http://localhost:8001)
+   - **RabbitMQ Management**: [http://localhost:15672](http://localhost:15672) (default credentials: `guest/guest`)
+
+5. **Verify service health**:
+   - **Auth Service**: [http://localhost:8001/health](http://localhost:8001/health)
+   - **Chat Service**: [http://localhost:8005/health](http://localhost:8005/health)
+
+---
+
+### **Development Setup**
+
+For local development without Docker:
+
+1. **Install Python 3.10-3.12**:
+   - Ensure Python is installed and added to your PATH.
+
+2. **Install dependencies**:
+   ```bash
+   pip install -r services/chat/requirements.txt
+   pip install -r services/ingestion/requirements.txt
+   pip install -r services/auth/requirements.txt
+   # Repeat for other services as needed
+   ```
+
+3. **Start infrastructure**:
+   ```bash
+   docker-compose up rabbitmq qdrant
+   ```
+
+4. **Run services individually**:
+   ```bash
+   # Example: Running the Chat Service
+   cd services/chat
+   python -m app.app
+   ```
+
+5. **Verify service health**:
+   - Check the `/health` endpoint for each service to ensure it is running.
+
+---
 
 📖 **For detailed configuration options, see:** [docs/QUICK_CONFIG.md](docs/QUICK_CONFIG.md)
 
@@ -409,7 +468,11 @@ All services communicate via RabbitMQ events and REST APIs. The Chat service ser
 ---
 
 
+<<<<<<< HEAD
 ## **9\. Architecture**
+=======
+## **8\. Architecture**
+>>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
 
 ### **Event-Driven Microservices**
 
@@ -439,7 +502,11 @@ For detailed architecture documentation, see:
 
 ---
 
+<<<<<<< HEAD
 ## **10\. Contributers**
+=======
+## **9\. Contributers**
+>>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee
 
 - **DominykasPivo**
 - **S3eedkabak**
@@ -447,15 +514,37 @@ For detailed architecture documentation, see:
 
 ---
 
-## **11\. License**
+## **10\. License**
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-## **12\. Acknowledgments**
+## **11\. Acknowledgments**
 
 - **MARP Guide:** Source material for the RAG knowledge base
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+<<<<<<< HEAD
+=======
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+>>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee

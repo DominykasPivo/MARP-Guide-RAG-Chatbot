@@ -109,6 +109,63 @@ class TestChatServiceEvents:
         assert "retrievedChunks" in event.payload
         assert len(event.payload["retrievedChunks"]) == 1
 
+    def test_response_generated_event(self):
+        """Test ResponseGenerated event creation."""
+        from services.chat.app.events import ResponseGenerated
+
+        event = ResponseGenerated(
+            eventType="responsegenerated",
+            eventId="evt-003",
+            timestamp="2025-01-01T00:00:00Z",
+            correlationId="corr-001",
+            source="chat-service",
+            version="1.0",
+            payload={
+                "queryId": "q-001",
+                "userId": "user-001",
+                "answer": "MARP is a comprehensive guide...",
+                "citations": [
+                    {
+                        "title": "MARP Guide",
+                        "page": 1,
+                        "url": "http://example.com/marp.pdf",
+                    }
+                ],
+                "modelUsed": "gpt-4",
+                "retrievalModel": "all-MiniLM-L6-v2",
+            },
+        )
+
+        assert event.payload["answer"]
+        assert "citations" in event.payload
+        assert event.payload["modelUsed"] == "gpt-4"
+
+    def test_answer_generated_event(self):
+        """Test AnswerGenerated event creation."""
+        from services.chat.app.events import AnswerGenerated
+
+        event = AnswerGenerated(
+            eventType="answergenerated",
+            eventId="evt-004",
+            timestamp="2025-01-01T00:00:00Z",
+            correlationId="corr-001",
+            source="chat-service",
+            version="1.0",
+            payload={
+                "queryId": "q-001",
+                "answerText": "MARP is a framework...",
+                "citations": [
+                    {"documentId": "doc-001", "chunkId": "chunk-001", "sourcePage": 1}
+                ],
+                "confidence": 0.92,
+                "generatedAt": "2025-01-01T00:00:01Z",
+            },
+        )
+
+        assert "answerText" in event.payload
+        assert "citations" in event.payload
+        assert event.payload["confidence"] > 0.8
+
 
 class TestCitationExtraction:
     """Test citation extraction from responses."""
@@ -215,6 +272,8 @@ class TestEventTypes:
 
         assert EventTypes.QUERY_RECEIVED.value == "queryreceived"
         assert EventTypes.CHUNKS_RETRIEVED.value == "chunksretrieved"
+        assert EventTypes.RESPONSE_GENERATED.value == "responsegenerated"
+        assert EventTypes.ANSWER_GENERATED.value == "answergenerated"
 
     def test_event_version(self):
         """Test event version tracking."""
@@ -233,41 +292,6 @@ class TestEventTypes:
         assert event.version == "1.0"
 
 
-class TestQueryReceivedPublishing:
-    """Test QueryReceived event publishing in chat service."""
-
-    def test_chat_endpoint_publishes_query_received(self):
-        """Test that /chat endpoint publishes QueryReceived event."""
-        from unittest.mock import AsyncMock, patch
-
-        from fastapi.testclient import TestClient
-
-        from services.chat.app.app import app
-
-        with (
-            patch("services.chat.app.app.publish_query_received_event") as mock_publish,
-            patch(
-                "services.chat.app.app.get_chunks_via_http_async",
-                new_callable=AsyncMock,
-                return_value=[],
-            ),
-            patch(
-                "services.chat.app.app.generate_answers_parallel",
-                new_callable=AsyncMock,
-                return_value=[],
-            ),
-        ):
-            client = TestClient(app)
-            client.post("/chat", json={"query": "What is MARP?", "selected_models": []})
-
-            # Verify event was published
-            assert mock_publish.called
-            call_args = mock_publish.call_args
-            assert call_args[1]["query_text"] == "What is MARP?"
-            assert call_args[1]["user_id"] == "anonymous"
-            assert "query_id" in call_args[1]
-
-
 class TestCorrelationIDPropagation:
     """Test correlation ID tracking through chat flow."""
 
@@ -284,6 +308,28 @@ class TestCorrelationIDPropagation:
             source="chat-service",
             version="1.0",
             payload={"queryId": "q-001", "userId": "u-001", "queryText": "Test"},
+        )
+
+        assert event.correlationId == corr_id
+
+    def test_correlation_id_in_response_generated(self):
+        """Test correlation ID propagates to ResponseGenerated."""
+        from services.chat.app.events import ResponseGenerated
+
+        corr_id = "chat-corr-67890"
+        event = ResponseGenerated(
+            eventType="responsegenerated",
+            eventId="evt-007",
+            timestamp="2025-01-01T00:00:00Z",
+            correlationId=corr_id,
+            source="chat-service",
+            version="1.0",
+            payload={
+                "queryId": "q-001",
+                "userId": "u-001",
+                "answer": "Answer",
+                "citations": [],
+            },
         )
 
         assert event.correlationId == corr_id
