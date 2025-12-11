@@ -11,14 +11,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <style>
         :root {
-            --bg-primary: #000000;
-            --bg-secondary: rgba(255, 255, 255, 0.02);
-            --bg-glass: rgba(255, 255, 255, 0.05);
-            --text-primary: #f5f5f7;
-            --text-secondary: #a1a1a6;
-            --accent: #007aff;
-            --accent-glow: rgba(0, 122, 255, 0.3);
-            --border: rgba(255, 255, 255, 0.08);
+            /* ADJUSTED DARK THEME TO MATCH AN ASSUMED 'SOFTER' DARK COLOR SCHEME */
+            --bg-primary: #121212; /* Changed from #000000 for a softer dark look */
+            --bg-secondary: rgba(255, 255, 255, 0.03); /* Slightly more visible secondary background */
+            --bg-glass: rgba(255, 255, 255, 0.07); /* More prominent glass effect */
+            --text-primary: #ededee; /* Slightly brighter text for contrast */
+            --text-secondary: #b0b0b5; /* Slightly brighter secondary text */
+            --accent: #00b8ff; /* Changed from #007aff to a brighter, more cyan blue accent */
+            --accent-glow: rgba(0, 184, 255, 0.3); /* Adjusted glow to match new accent */
+            --border: rgba(255, 255, 255, 0.12); /* More visible borders */
             --spacing-xs: 8px;
             --spacing-sm: 16px;
             --spacing-md: 24px;
@@ -126,6 +127,25 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+        }
+
+        /* Sign Out Button Style */
+        .signout-button {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s var(--easing);
+        }
+
+        .signout-button:hover {
+            background: rgba(255, 59, 48, 0.2);
+            border-color: #ff3b30;
+            color: #ff3b30;
         }
 
         /* Main Container */
@@ -278,6 +298,7 @@
             box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
         }
 
+        /* Loading Indicator */
         .loading-indicator {
             display: none;
             padding: var(--spacing-md);
@@ -504,39 +525,32 @@
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
         <div class="spinner"></div>
     </div>
 
-    <!-- Progress Bar -->
     <div class="progress-bar" id="progressBar"></div>
 
-    <!-- Navigation -->
     <nav class="nav" id="nav">
         <div class="nav-content">
             <div class="logo">MARP AI</div>
+            <button class="signout-button" onclick="signOut()">Sign Out</button> 
         </div>
     </nav>
 
-    <!-- Particles Background -->
     <div class="particles" id="particles"></div>
 
-    <!-- Main Container -->
     <div class="container">
-        <!-- Hero Section -->
         <div class="hero" id="hero">
             <h1>Ask Anything</h1>
             <p>Powered by advanced AI models with real-time document retrieval</p>
         </div>
 
-        <!-- Model Selector -->
         <div class="model-selector" id="modelSelector">
             <label>Select Models</label>
             <div class="model-chips" id="modelChips"></div>
         </div>
 
-        <!-- Chat Container -->
         <div class="chat-container" id="chatContainer">
             <div class="messages" id="messages"></div>
             <div class="loading-indicator" id="loadingIndicator">
@@ -567,6 +581,14 @@
         let availableModels = [];
         let selectedModels = [];
         let isLoading = false;
+        
+        // ** NEW: Store the API URL and User ID for the chat endpoint **
+        // --- START OF CORRECTION ---
+        const API_CHAT_URL = 'http://localhost:8006/chat'; // CORRECTED: Use absolute URL
+        let currentUserId = null; 
+        const API_MODELS_URL = 'http://localhost:8006/models'; // ADDED: Use absolute URL for models
+        // --- END OF CORRECTION ---
+
 
         // DOM Elements
         const loadingScreen = document.getElementById('loadingScreen');
@@ -588,6 +610,29 @@
             'microsoft/phi-3-mini-128k-instruct:free'
         ];
 
+        // ** NEW: Sign Out Function **
+        function signOut() {
+            // 1. Clear user data from local storage
+            localStorage.removeItem('marp_user_id');
+            localStorage.removeItem('marp_username');
+            currentUserId = null;
+
+            // 2. Redirect back to the authentication page
+            window.location.href = 'auth.html'; 
+        }
+
+        // ** NEW: Authentication Check Function **
+        function checkAuthentication() {
+            const userId = localStorage.getItem('marp_user_id');
+            if (!userId) {
+                // If no user ID is found, redirect to login
+                window.location.href = 'auth.html';
+                return false;
+            }
+            currentUserId = userId;
+            return true;
+        }
+
         // Load available models with retry and fallback
         async function loadModels(retries = 5) {
             // Show loading state
@@ -597,8 +642,10 @@
                 try {
                     console.log(`Attempting to load models (attempt ${attempt}/${retries})...`);
 
-                    // Try different endpoint variations
-                    const endpoints = ['/models', './models', '/api/models', 'models'];
+                    // --- START OF CORRECTION ---
+                    // Try only the correct absolute endpoint
+                    const endpoints = [API_MODELS_URL]; // CORRECTED: Use the absolute URL constant
+                    // --- END OF CORRECTION ---
                     let lastError = null;
 
                     for (const endpoint of endpoints) {
@@ -755,7 +802,7 @@
         // Send message
         async function sendMessage() {
             const query = messageInput.value.trim();
-            if (!query || isLoading) return;
+            if (!query || isLoading || !currentUserId) return;
 
             // Add user message
             addMessage('user', query, null);
@@ -785,10 +832,12 @@
 
                 console.log('Sending request:', requestBody); // Debug log
 
-                const response = await fetch('/chat', {
+                // ** CRITICAL: Add the User-Id header **
+                const response = await fetch(API_CHAT_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'User-Id': currentUserId // Send the authenticated User ID
                     },
                     body: JSON.stringify(requestBody)
                 });
@@ -797,7 +846,14 @@
                 loadingIndicator.classList.remove('active');
 
                 if (!response.ok) {
-                    // Try to get error message from response
+                    // Handle 401 Unauthorized errors specifically
+                    if (response.status === 401) {
+                        showError("Session expired or invalid. Please sign in again.");
+                        signOut(); // Force sign out on 401
+                        return;
+                    }
+                    
+                    // Try to get other error message from response
                     let errorMessage = `HTTP error! status: ${response.status}`;
                     try {
                         const errorData = await response.json();
@@ -817,21 +873,12 @@
                 console.log('Response received:', data); // Debug log
 
                 // Add assistant responses
-                if (data.responses && data.responses.length > 0) {
-                    data.responses.forEach((llmResponse, index) => {
-                        setTimeout(() => {
-                            addMessage(
-                                'assistant',
-                                llmResponse.answer,
-                                llmResponse.model,
-                                llmResponse.citations,
-                                llmResponse.generation_time
-                            );
-                        }, index * 200); // Stagger responses
-                    });
-                } else {
-                    addMessage('assistant', 'No response received.', null);
-                }
+                const botResponse = data.response || 'No response received.';
+                addMessage('assistant', botResponse, 'MARP AI', [], data.generation_time || null);
+                
+                // The API endpoint you provided simulates the full response in the 'response' key, 
+                // so we don't need the responses.forEach loop from the previous version.
+                
             } catch (error) {
                 loadingIndicator.classList.remove('active');
                 // Show more specific error message
@@ -957,6 +1004,11 @@
 
         // Initialize
         async function init() {
+            // ** 1. Check Authentication first **
+            if (!checkAuthentication()) {
+                return; // Stop initialization if not authenticated (redirect already happened)
+            }
+
             // Hide loading screen after 1s
             setTimeout(() => {
                 loadingScreen.classList.add('hidden');

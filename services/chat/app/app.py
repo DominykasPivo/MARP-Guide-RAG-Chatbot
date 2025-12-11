@@ -5,7 +5,7 @@ import uuid
 from typing import Optional
 
 import httpx
-from chat_events import publish_query_received_event
+from events import publish_query_received_event
 from consumers import start_consumer_thread
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
