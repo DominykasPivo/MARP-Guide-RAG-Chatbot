@@ -122,8 +122,9 @@ graph LR
 
 ## **🧱 Component Breakdown and Responsibilities**
 
+
 | Component | Function / Role |
-| :---- | :---- | :---- |
+| :---- | :---- |
 | **Ingestion Service** | Discovers new documents (e.g., MARP PDFs) and initiates the ingestion pipeline by publishing an event. |
 | **Extraction Service** | Consumes the discovery event, extracts text and metadata from documents using tools like pdfplumber, and publishes the extracted data. |
 | **Indexing Service** | Consumes extracted data, chunks documents semantically, generates vector embeddings, and persists data to the databases. |
@@ -137,7 +138,6 @@ graph LR
 | **PostgreSQL** | The relational User Database used for user data, authentication details, and document ingestion metadata. |
 | **LLM APIs** (External) | Third-party interfaces for Large Language Models accessed by the Orchestrator for content generation. |
 
-## **4\. How It Works: Key Scenarios**
 
 ### **Document Ingestion Pipeline (Event-Driven)**
 
@@ -392,6 +392,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
