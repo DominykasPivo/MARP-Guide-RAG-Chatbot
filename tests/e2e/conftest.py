@@ -31,7 +31,9 @@ def docker_services(docker_compose_file):
     """
     # Check if docker compose (v2) is available
     try:
-        subprocess.run(["docker", "compose", "version"], check=True, capture_output=True)
+        subprocess.run(
+            ["docker", "compose", "version"], check=True, capture_output=True
+        )
     except (subprocess.CalledProcessError, FileNotFoundError):
         pytest.skip("docker compose not available")
 

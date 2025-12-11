@@ -1,14 +1,14 @@
 """
 Unit tests for RabbitMQ connection and retry logic.
 
-Uses fakes/mocks/fixtures for isolated unit testing following the pattern from test_ingestion_flow.py
+Uses fakes/mocks/fixtures for isolated unit testing following the pattern
+from test_ingestion_flow.py
 """
 
 import json
 from unittest.mock import MagicMock
 
 import pytest
-
 
 # --- Fake RabbitMQ for Testing ---
 
@@ -158,9 +158,7 @@ class TestEventPublishing:
 
         assert result is True
         assert len(fake_publisher.published_events) == 1
-        assert (
-            fake_publisher.published_events[0]["event_type"] == "DocumentDiscovered"
-        )
+        assert fake_publisher.published_events[0]["event_type"] == "DocumentDiscovered"
         assert fake_publisher.published_events[0]["data"] == event_data
 
     def test_publish_event_with_correlation_id(self, fake_publisher):
@@ -332,7 +330,9 @@ class TestRabbitMQEdgeCases:
 
         # Verify JSON serialization works (JSON escapes unicode by default)
         json_str = json.dumps(published["data"])
-        assert "\\u4e16\\u754c" in json_str or "世界" in json_str  # Accept both escaped and unescaped
+        assert (
+            "\\u4e16\\u754c" in json_str or "世界" in json_str
+        )  # Accept both escaped and unescaped
 
     def test_large_event_data(self, fake_publisher):
         """Test publishing large event data."""
