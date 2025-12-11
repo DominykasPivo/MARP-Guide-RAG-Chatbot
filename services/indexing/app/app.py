@@ -11,7 +11,6 @@ from rabbitmq import EXCHANGE_NAME, QUEUE_NAME, ROUTING_KEY, EventConsumer, pika
 EVENT_VERSION = os.getenv("EVENT_VERSION", "1.0")
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "chunks")
 
-
 logger = logging.getLogger("indexing")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(
@@ -27,28 +26,22 @@ client = get_qdrant_client()
 
 @app.get("/index/status/{doc_id}")
 async def index_status(doc_id: str):
+    """Return indexing status for a given document ID."""
     try:
-
         res = client.scroll(
             collection_name=QDRANT_COLLECTION,
-            scroll_filter={
-                "must": [{"key": "document_id", "match": {"value": doc_id}}]
-            },
+            scroll_filter={"must": [{"key": "document_id", "match": {"value": doc_id}}]},
             limit=1,
         )
         points = res[0] if res else []
         if points:
             logger.debug(
-                f"Returning status for doc_id {doc_id}: indexed, "
-                f"chunk_count={len(points)}"
+                "Index status.",
+                extra={"document_id": doc_id, "chunk_count": len(points)},
             )
-            return JSONResponse(
-                content={"indexed": True, "chunk_count": len(points)}, status_code=200
-            )
+            return JSONResponse(content={"indexed": True, "chunk_count": len(points)}, status_code=200)
         else:
-            logger.warning(
-                f"Status requested for unknown or unindexed doc_id: {doc_id}"
-            )
+            logger.warning("Index status requested for unindexed document.", extra={"document_id": doc_id})
             return JSONResponse(content={"indexed": False}, status_code=404)
     except Exception as e:
         import traceback
@@ -60,6 +53,7 @@ async def index_status(doc_id: str):
 
 @app.get("/health")
 async def health():
+    """Health check endpoint."""
     status = {"service": "indexing"}
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbitmq"))
@@ -74,31 +68,13 @@ async def health():
     except Exception as e:
         logger.error(f"Qdrant health check failed: {e}")
         status["qdrant"] = f"unhealthy ({str(e)})"
-    status["status"] = (
-        "healthy"
-        if all(v == "healthy" for k, v in status.items() if k != "service")
-        else "unhealthy"
-    )
-    return JSONResponse(
-        content=status, status_code=200 if status["status"] == "healthy" else 503
-    )
+    status["status"] = "healthy" if all(v == "healthy" for k, v in status.items() if k != "service") else "unhealthy"
+    return JSONResponse(content=status, status_code=200 if status["status"] == "healthy" else 503)
 
 
 @app.post("/index")
 async def index(request: Request):
-    """Index a document (requires a DocumentExtracted event payload)
-    Args:
-    > payload{extractedAt, metadata{title, sourceUrl, fileType, pageCount},
-      textContent, documentId}, version, source, correlationId, timestamp,
-      eventId, eventType
-
-    Example terminal command to test the /index endpoint:
-     >curl -X POST http://localhost:8003/index \
-       -H "Content-Type: application/json" \
-       -d '{"eventType":"DocumentExtracted","eventId":"test-id",
-            "timestamp":"2025-11-06T12:00:00Z","payload":{...}}'
-
-    """
+    """Index a document. Expects a DocumentExtracted event payload."""
     data = await request.json()
     try:
         process_extracted_event({"data": data})
@@ -111,27 +87,23 @@ async def index(request: Request):
         )
     except Exception as e:
         logger.error(f"Indexing failed: {e}", exc_info=True)
-        return JSONResponse(
-            content={"message": "Indexing failed", "error": str(e)}, status_code=500
-        )
+        return JSONResponse(content={"message": "Indexing failed", "error": str(e)}, status_code=500)
 
 
 @app.get("/")
 async def home():
+    """Root endpoint for service status."""
     logger.info("Home endpoint accessed")
-    return JSONResponse(
-        content={"message": "Indexing Service is running"}, status_code=200
-    )
+    return JSONResponse(content={"message": "Indexing Service is running"}, status_code=200)
 
 
 @app.get("/debug/queue")
 async def debug_queue():
+    """Return RabbitMQ queue state for debugging."""
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbitmq"))
         channel = connection.channel()
-        queue_state = channel.queue_declare(
-            queue=QUEUE_NAME, durable=True, passive=True
-        )
+        queue_state = channel.queue_declare(queue=QUEUE_NAME, durable=True, passive=True)
         message_count = queue_state.method.message_count
         connection.close()
         return JSONResponse(
@@ -149,6 +121,7 @@ async def debug_queue():
 
 @app.get("/debug/chunks")
 async def debug_chunks():
+    """Return chunk previews from Qdrant."""
     try:
         res = client.scroll(collection_name=QDRANT_COLLECTION, limit=10)
         points = res[0] if res else []
@@ -162,21 +135,19 @@ async def debug_chunks():
                     "metadata": p.payload,
                 }
             )
-        return JSONResponse(
-            content={"chunk_count": len(preview), "chunks": preview}, status_code=200
-        )
+        return JSONResponse(content={"chunk_count": len(preview), "chunks": preview}, status_code=200)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 def start_consumer():
-    indexing_consumer = EventConsumer(
-        EventTypes.DOCUMENT_EXTRACTED.value, process_extracted_event
-    )
+    """Start RabbitMQ consumer for indexing events."""
+    indexing_consumer = EventConsumer(EventTypes.DOCUMENT_EXTRACTED.value, process_extracted_event)
     indexing_consumer.daemon = True
     indexing_consumer.start()
 
 
 @app.on_event("startup")
 def on_startup():
+    """Start background consumer on application startup."""
     start_consumer()

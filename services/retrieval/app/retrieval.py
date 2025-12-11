@@ -36,34 +36,32 @@ class RetrievalService:
 
     def _ensure_retriever(self):
         if self.retriever is None:
-            logger.info("Initializing retriever...")
+            logger.info("Initializing retriever")
             self.retriever = get_retriever()
-            logger.info("✅ Retriever initialized")
+            logger.info("Retriever initialized")
         return self.retriever
 
     def start(self):
         """
         Start listening for ChunksIndexed events to invalidate cache.
-        NOTE: QueryReceived is handled by consumers.py for tracking only.
-        Actual retrieval happens via HTTP in app.py.
+        QueryReceived is handled by consumers.py for tracking only.
         """
-        logger.info("Starting retrieval service...")
+        logger.info("Starting retrieval service")
         consumer = self._ensure_consumer()
 
-        # Only subscribe to ChunksIndexed for cache invalidation
         try:
             consumer.subscribe("chunks.indexed", self.handle_chunks_indexed)
-            logger.info("✅ Subscribed to 'ChunksIndexed'")
+            logger.info("Subscribed to 'ChunksIndexed'")
         except Exception as e:
-            logger.error(f"❌ Failed to subscribe 'chunksindexed': {e}")
+            logger.error(f"Failed to subscribe 'chunksindexed': {e}")
 
-        logger.info("Starting RabbitMQ consumer...")
+        logger.info("Starting RabbitMQ consumer")
         consumer.start_consuming()
 
     def handle_chunks_indexed(self, ch, method, properties, body):
         """
-        When chunks are indexed, invalidate the retriever cache so next
-        HTTP query gets fresh data.
+        When chunks are indexed, invalidate the retriever cache so the next
+        HTTP query uses fresh data.
         """
         correlation_id = (
             properties.correlation_id
@@ -80,7 +78,7 @@ class RetrievalService:
             chunk_index = payload.get("chunkIndex", 0)
             total_chunks = payload.get("totalChunks", 1)
             logger.info(
-                "📨 ChunksIndexed received",
+                "ChunksIndexed received",
                 extra={
                     "correlation_id": correlation_id,
                     "document_id": document_id,
@@ -91,7 +89,7 @@ class RetrievalService:
                 retriever = self._ensure_retriever()
                 retriever.invalidate_cache()
                 logger.info(
-                    "♻️ Final chunk indexed - cache invalidated",
+                    "Final chunk indexed; cache invalidated",
                     extra={
                         "correlation_id": correlation_id,
                         "document_id": document_id,

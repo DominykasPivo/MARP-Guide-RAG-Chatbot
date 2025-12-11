@@ -16,7 +16,6 @@ EXCHANGE_NAME = "document_events"
 @dataclass
 class QueryReceived:
     """Event schema for QueryReceived."""
-
     eventType: str
     eventId: str
     timestamp: str
@@ -24,20 +23,6 @@ class QueryReceived:
     source: str
     version: str
     payload: Dict
-
-
-@dataclass
-class ChunksRetrieved:
-    """Event schema for ChunksRetrieved."""
-
-    eventType: str
-    eventId: str
-    timestamp: str
-    correlationId: str
-    source: str
-    version: str
-    payload: Dict
-
 
 def publish_retrieval_completed_event(
     query_id: str,
@@ -48,30 +33,14 @@ def publish_retrieval_completed_event(
     rabbitmq_url: Optional[str] = None,
 ):
     """
-    Publish RetrievalCompleted event for tracking/observability.
-    ⚠️ SAFE: This will NOT break retrieval if it fails - it's fire-and-forget.
-
-    Schema matches event catalogue:
-    {
-      "eventType": "RetrievalCompleted",
-      "eventId": "string",
-      "timestamp": "string",
-      "source": "retrieval-service",
-      "version": "1.0",
-      "payload": {
-        "queryId": "string",
-        "query": "string",
-        "resultsCount": "integer",
-        "topScore": "number",
-        "latencyMs": "number"
-      }
-    }
+    Publish RetrievalCompleted event for tracking and observability.
+    This will not break retrieval if it fails; it is fire-and-forget.
     """
     if rabbitmq_url is None:
         rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
     try:
-        logger.info("📤 Publishing RetrievalCompleted event")
+        logger.info("Publishing RetrievalCompleted event")
         connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
         channel = connection.channel()
         channel.exchange_declare(
@@ -100,11 +69,10 @@ def publish_retrieval_completed_event(
             properties=pika.BasicProperties(delivery_mode=2),
         )
 
-        logger.info(f"✅ Published RetrievalCompleted: {query_id}")
+        logger.info(f"Published RetrievalCompleted: {query_id}")
         connection.close()
 
     except Exception as e:
-        # ⚠️ CRITICAL: We catch and log, but DON'T raise
         logger.error(
-            f"❌ Failed to publish RetrievalCompleted event: {e}", exc_info=True
+            f"Failed to publish RetrievalCompleted event: {e}", exc_info=True
         )

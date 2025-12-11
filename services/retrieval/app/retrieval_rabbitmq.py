@@ -8,7 +8,6 @@ from pika.exceptions import AMQPConnectionError
 
 logger = logging.getLogger("retrieval.rabbitmq")
 
-# Constants from environment
 EXCHANGE_NAME = "document_events"
 MAX_RETRIES = int(os.getenv("RABBITMQ_MAX_RETRIES", "5"))
 INITIAL_RETRY_DELAY = int(os.getenv("RABBITMQ_INITIAL_RETRY_DELAY", "1"))
@@ -20,17 +19,12 @@ CONNECTION_TIMEOUT = int(os.getenv("RABBITMQ_CONNECTION_TIMEOUT", "30"))
 
 class EventConsumer:
     def __init__(self, rabbitmq_host=None, retriever=None):
-        """Initialize EventConsumer.
-
-        Args:
-            rabbitmq_host: RabbitMQ hostname (defaults to env var)
-            retriever: Retriever instance for processing queries
-        """
+        """Initialize EventConsumer."""
         self.host = rabbitmq_host or os.getenv("RABBITMQ_HOST", "localhost")
         self.connection = None
         self.channel = None
         self.retriever = retriever
-        self.subscriptions = {}  # Track subscriptions: {event_type: callback}
+        self.subscriptions = {}
         logger.info(f"EventConsumer initialized for host: {self.host}")
 
     def _calculate_retry_delay(self, attempt: int) -> float:
@@ -60,7 +54,6 @@ class EventConsumer:
             self.connection = pika.BlockingConnection(parameters)
             self.channel = self.connection.channel()
 
-            # Declare exchange according to event catalogue
             self.channel.exchange_declare(
                 exchange=EXCHANGE_NAME, exchange_type="topic", durable=True
             )
@@ -76,12 +69,7 @@ class EventConsumer:
             return False
 
     def subscribe(self, event_type: str, callback):
-        """Register a subscription (does not start consuming yet).
-
-        Args:
-            event_type: Event type to subscribe to (e.g., 'queryreceived')
-            callback: Function to call when event is received
-        """
+        """Register a subscription for events."""
         routing_key = event_type.lower()
         self.subscriptions[routing_key] = callback
         logger.info(f"Registered subscription for '{routing_key}' events")
@@ -93,8 +81,7 @@ class EventConsumer:
                 if attempt < MAX_RETRIES - 1:
                     delay = self._calculate_retry_delay(attempt)
                     logger.warning(
-                        f"Retrying connection in {delay:.2f}s... "
-                        f"(attempt {attempt + 1}/{MAX_RETRIES})"
+                        f"Retrying connection in {delay:.2f}s (attempt {attempt + 1}/{MAX_RETRIES})"
                     )
                     time.sleep(delay)
                     continue
@@ -105,45 +92,39 @@ class EventConsumer:
                     )
 
             try:
-                # Set up all subscriptions
                 for routing_key, callback in self.subscriptions.items():
-                    # Create exclusive queue for this subscription
                     result = self.channel.queue_declare(queue="", exclusive=True)
                     queue_name = result.method.queue
 
-                    # Bind queue to exchange with routing key
                     self.channel.queue_bind(
                         exchange=EXCHANGE_NAME,
                         queue=queue_name,
                         routing_key=routing_key,
                     )
 
-                    # Set up consumer
                     self.channel.basic_qos(prefetch_count=1)
                     self.channel.basic_consume(
                         queue=queue_name, on_message_callback=callback, auto_ack=False
                     )
 
                     logger.info(
-                        f"Subscribed to '{routing_key}' events on "
-                        f"exchange '{EXCHANGE_NAME}'"
+                        f"Subscribed to '{routing_key}' events on exchange '{EXCHANGE_NAME}'"
                     )
 
                 logger.info(
-                    f"Starting to consume messages for "
-                    f"{len(self.subscriptions)} event types..."
+                    f"Starting to consume messages for {len(self.subscriptions)} event types"
                 )
                 self.channel.start_consuming()
 
             except KeyboardInterrupt:
-                logger.info("Stopping consumer...")
+                logger.info("Stopping consumer")
                 self.stop()
                 break
             except Exception as e:
                 logger.error(f"Error in consumer: {e}")
                 if attempt < MAX_RETRIES - 1:
                     delay = self._calculate_retry_delay(attempt)
-                    logger.warning(f"Retrying in {delay:.2f}s...")
+                    logger.warning(f"Retrying in {delay:.2f}s")
                     time.sleep(delay)
                 else:
                     raise

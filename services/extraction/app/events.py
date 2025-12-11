@@ -1,4 +1,4 @@
-"""Event schemas and types for the extraction service."""
+"""Event schemas and types for extraction."""
 
 from dataclasses import dataclass
 from enum import Enum
@@ -6,17 +6,14 @@ from typing import Dict
 
 
 class EventTypes(Enum):
-    """Event types for document processing."""
-
-    # Incoming event from ingestion service
+    """Event types used by extraction."""
     DOCUMENT_DISCOVERED = "document.discovered"
-    DOCUMENT_EXTRACTED = "document.extracted"  # After successful text extraction
+    DOCUMENT_EXTRACTED = "document.extracted"
 
 
 @dataclass
 class DocumentDiscovered:
-    """Event schema for DocumentDiscovered."""
-
+    """Schema for DocumentDiscovered."""
     eventType: str
     eventId: str
     timestamp: str
@@ -28,8 +25,7 @@ class DocumentDiscovered:
 
 @dataclass
 class DocumentExtracted:
-    """Event data for an extracted document."""
-
+    """Schema for DocumentExtracted."""
     eventType: str
     eventId: str
     timestamp: str
@@ -37,15 +33,3 @@ class DocumentExtracted:
     source: str
     version: str
     payload: Dict
-
-    # "payload": {
-    #     "documentId": "string",
-    #     "textContent": "string",
-    #     "metadata": {
-    #       "title": "string",
-    #       "sourceUrl": "string",
-    #       "fileType": "string",
-    #       "pageCount": "integer"
-    #     },
-    #     "extractedAt": "string"
-    #   }

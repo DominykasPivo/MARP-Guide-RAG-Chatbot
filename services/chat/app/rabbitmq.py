@@ -49,7 +49,7 @@ class RabbitMQClient:
                 routing_key=routing_key,
                 body=json.dumps(message),
                 properties=pika.BasicProperties(
-                    delivery_mode=2,  # make message persistent
+                    delivery_mode=2,
                 ),
             )
             logger.info(f"Published message to {routing_key}")

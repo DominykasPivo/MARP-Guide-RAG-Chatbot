@@ -54,28 +54,14 @@ def publish_query_received_event(
     rabbitmq_url: Optional[str] = None,
 ):
     """
-    Publish QueryReceived event for tracking/observability.
-    ⚠️ SAFE: This will NOT break chat if it fails - it's fire-and-forget.
-
-    Schema matches event catalogue:
-    {
-      "eventType": "QueryReceived",
-      "eventId": "string",
-      "timestamp": "string",
-      "source": "chat-service",
-      "version": "1.0",
-      "payload": {
-        "queryId": "string",
-        "userId": "string",
-        "queryText": "string"
-      }
-    }
+    Publish QueryReceived event for tracking and observability.
+    Does not impact chat functionality if publishing fails.
     """
     if rabbitmq_url is None:
         rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
     try:
-        logger.info("📤 Publishing QueryReceived event")
+        logger.info("Publishing QueryReceived event")
         connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
         channel = connection.channel()
         channel.exchange_declare(
@@ -102,10 +88,8 @@ def publish_query_received_event(
             properties=pika.BasicProperties(delivery_mode=2),
         )
 
-        logger.info(f"✅ Published QueryReceived: {query_id}")
+        logger.info(f"Published QueryReceived: {query_id}")
         connection.close()
 
     except Exception as e:
-        # ⚠️ CRITICAL: We catch and log, but DON'T raise
-        # This ensures chat keeps working even if event publishing fails
-        logger.error(f"❌ Failed to publish QueryReceived event: {e}", exc_info=True)
+        logger.error(f"Failed to publish QueryReceived event: {e}", exc_info=True)

@@ -15,7 +15,6 @@ def get_relevant_chunks(query: str, top_k: int = 5):
     try:
         retriever = get_retriever()
         chunks = retriever.search(query, top_k=top_k)
-        # Format for legacy compatibility
         return [
             {
                 "text": chunk["text"],

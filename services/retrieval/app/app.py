@@ -5,7 +5,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from consumers import start_consumer_thread
+from consumers import get_metrics, start_consumer_thread
 from fastapi import Body, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -13,7 +13,6 @@ from qdrant_client import QdrantClient
 from retrieval import RetrievalService
 from retrieval_events import publish_retrieval_completed_event
 
-# Environment variables
 RETRIEVAL_TOP_K = int(os.getenv("RETRIEVAL_TOP_K", "5"))
 
 
@@ -39,21 +38,18 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 
-
 rabbitmq_host = os.getenv("RABBITMQ_HOST", "rabbitmq")
 app = FastAPI(title="MARP Retrieval Service", version="1.0.0")
-
 
 service = RetrievalService()
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Start background event consumers on app startup"""
-    logger.info("🚀 Starting Retrieval Service...")
-    # Start consuming QueryReceived events (for tracking only - won't affect HTTP logic)
+    """Start background event consumers on app startup."""
+    logger.info("Starting Retrieval Service")
     start_consumer_thread()
-    logger.info("✅ Retrieval Service ready")
+    logger.info("Retrieval Service ready")
 
 
 @app.get("/debug/vector-store")
@@ -66,7 +62,6 @@ def debug_vector_store():
         count = collection_info.get("points_count", 0)
         sample_results = []
         if count > 0:
-            # Fetch a few points for preview (Qdrant)
             points = qdrant_client.scroll(
                 collection_name=service.collection_name, limit=5
             )[0]
@@ -97,7 +92,7 @@ def debug_vector_store():
 
 @app.post("/search", response_model=dict)
 def search(request: SearchRequest):
-    """Direct search endpoint (bypasses events)."""
+    """Direct search endpoint."""
     try:
         query = request.query
         top_k = request.top_k
@@ -108,18 +103,15 @@ def search(request: SearchRequest):
         if not isinstance(top_k, int) or top_k < 1 or top_k > 100:
             top_k = 5
 
-        # Track timing for event
         start_time = time.time()
         correlation_id = str(uuid.uuid4())
 
         retriever = service._ensure_retriever()
         chunks = retriever.search(query, top_k)
 
-        # Calculate metrics
         processing_time = (time.time() - start_time) * 1000
         top_score = chunks[0]["relevanceScore"] if chunks else 0.0
 
-        # ✅ PUBLISH RetrievalCompleted EVENT
         publish_retrieval_completed_event(
             query_id=correlation_id,
             query=query,
@@ -195,10 +187,8 @@ def query(data: dict = Body(...)):
             },
         )
 
-        # ✅ Prepare response FIRST
         response_data = {"query": query_text, "chunks": formatted_chunks}
 
-        # ✅ Publish event in background thread (fire-and-forget)
         import threading
 
         def publish_in_background():
@@ -215,7 +205,6 @@ def query(data: dict = Body(...)):
 
         threading.Thread(target=publish_in_background, daemon=True).start()
 
-        # ✅ Return response immediately (don't wait for event)
         return JSONResponse(response_data, status_code=200)
 
     except Exception as e:
@@ -225,12 +214,11 @@ def query(data: dict = Body(...)):
 
 @app.get("/debug/qdrant-verification")
 def verify_qdrant_collection():
-    """Comprehensive endpoint to verify Qdrant collection has all chunks."""
+    """Verify Qdrant collection and provide sample statistics."""
     try:
         retriever = service._ensure_retriever()
         qdrant_client = QdrantClient(host=service.qdrant_host, port=service.qdrant_port)
 
-        # Get collection info
         collection_info = qdrant_client.get_collection(service.collection_name)
         total_points = (
             collection_info.points_count
@@ -238,12 +226,10 @@ def verify_qdrant_collection():
             else collection_info.get("points_count", 0)
         )
 
-        # Get sample of points to analyze
         sample_points, _ = qdrant_client.scroll(
-            collection_name=service.collection_name, limit=100  # Get more samples
+            collection_name=service.collection_name, limit=100
         )
 
-        # Analyze the sample
         unique_titles = set()
         unique_pages = set()
         chunk_indices = []
@@ -263,7 +249,6 @@ def verify_qdrant_collection():
                 pages_by_title[title] = set()
             pages_by_title[title].add(page)
 
-        # Count chunks per document/page
         chunks_per_doc = {}
         for pt in sample_points:
             payload = pt.payload or {}
@@ -272,7 +257,6 @@ def verify_qdrant_collection():
             key = (title, page)
             chunks_per_doc[key] = chunks_per_doc.get(key, 0) + 1
 
-        # Test a search to see how many results we get
         test_query = "academic regulations"
         test_embedding = retriever.encoder.encode(
             test_query.lower(), convert_to_tensor=False
@@ -322,4 +306,26 @@ def verify_qdrant_collection():
         )
     except Exception as e:
         logger.error(f"Verification endpoint failed: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/metrics")
+def metrics():
+    """Expose indexing metrics for monitoring."""
+    try:
+        consumer_metrics = get_metrics()
+        return JSONResponse(
+            {
+                "service": "retrieval",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "indexing_metrics": {
+                    "total_chunks_indexed": consumer_metrics["chunks_indexed_total"],
+                    "total_documents_indexed": consumer_metrics["documents_indexed_total"],
+                    "last_indexed_at": consumer_metrics["last_indexed_timestamp"],
+                },
+            },
+            status_code=200
+        )
+    except Exception as e:
+        logger.error(f"Metrics endpoint failed: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)

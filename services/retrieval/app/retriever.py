@@ -19,7 +19,6 @@ class Retriever:
         qdrant_port: Optional[int] = None,
         collection_name: str = "chunks",
     ):
-        # Match indexing service's env var names and defaults
         self.embedding_model_name = os.getenv("EMBEDDING_MODEL", embedding_model)
         self.qdrant_host = qdrant_host or os.getenv("QDRANT_HOST", "localhost")
         port_value: str | int | None = qdrant_port or os.getenv("QDRANT_PORT")
@@ -28,7 +27,6 @@ class Retriever:
 
         self.encoder = None
         self.client = None
-        # Add cache tracking for invalidate_cache() method
         self._cache_valid = True
 
         logger.info("Initializing Retriever with:")
@@ -39,27 +37,17 @@ class Retriever:
         self._initialize()
 
     def invalidate_cache(self):
-        """
-        Invalidate retriever cache when new chunks are indexed.
-        Called by retrieval.py when ChunksIndexed event is received.
-        Currently just logs - could add actual caching logic later.
-        """
-        logger.info("♻️ Cache invalidated - next query will use fresh data")
+        """Invalidate retriever cache when new chunks are indexed."""
+        logger.info("Cache invalidated; next query will use fresh data")
         self._cache_valid = False
-        # If you add caching later, clear it here
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Search for relevant chunks using Qdrant.
-        Always returns exactly top_k chunks (or as many as available).
-        Requests more from Qdrant to account for deduplication.
-        """
-        # Reset cache flag on new search
+        """Search for relevant chunks using Qdrant."""
         if not self._cache_valid:
-            logger.info("🔄 Using fresh data after cache invalidation")
+            logger.info("Using fresh data after cache invalidation")
             self._cache_valid = True
 
         try:
-            # Lowercase query for consistent preprocessing
             query_proc = query.lower()
             logger.info(f"Encoding query: '{query_proc[:100]}...'")
             if not self.encoder:
@@ -68,17 +56,13 @@ class Retriever:
                 query_proc, convert_to_tensor=False
             ).tolist()
 
-            # Qdrant search
             if not self.client:
                 raise RuntimeError("Qdrant client not initialized")
 
-            # Request more results from Qdrant to account for deduplication
-            # Request 3x top_k to ensure we get enough unique chunks
-            qdrant_limit = max(top_k * 3, 15)  # At least 15, or 3x top_k
+            qdrant_limit = max(top_k * 3, 15)
 
             logger.info(
-                f"🔍 Searching Qdrant collection '{self.collection_name}' "
-                f"for top {qdrant_limit} results (to get {top_k} unique chunks)"
+                f"Searching Qdrant collection '{self.collection_name}' for top {qdrant_limit} results"
             )
 
             search_results = self.client.search(
@@ -89,13 +73,12 @@ class Retriever:
                 with_vectors=False,
             )
 
-            logger.info(f"📊 Qdrant returned {len(search_results)} raw results")
+            logger.info(f"Qdrant returned {len(search_results)} raw results")
 
             chunks: List[Dict[str, Any]] = []
             seen = set()
 
             for result in search_results:
-                # Stop if we have enough chunks
                 if len(chunks) >= top_k:
                     break
 
@@ -104,13 +87,7 @@ class Retriever:
                 url = payload.get("url", "")
                 chunk_index = payload.get("chunk_index", 0)
 
-                # Use a more specific dedup key that includes chunk_index
-                # This ensures different chunks from same page are kept
-                dedup_key = (
-                    text.strip()[:100],
-                    url.strip(),
-                    chunk_index,
-                )  # First 100 chars of text + url + index
+                dedup_key = (text.strip()[:100], url.strip(), chunk_index)
 
                 if dedup_key in seen:
                     continue
@@ -128,30 +105,22 @@ class Retriever:
                     }
                 )
 
-            log_msg = (
-                f"✅ Retrieved {len(chunks)} unique chunks from Qdrant "
-                f"(requested {top_k}, got {len(chunks)} from "
-                f"{len(search_results)} raw results)"
+            logger.info(
+                f"Retrieved {len(chunks)} unique chunks (requested {top_k}, from {len(search_results)} raw results)"
             )
-            logger.info(log_msg)
 
-            # If we still don't have enough, log a warning
             if len(chunks) < top_k:
-                warning_msg = (
-                    f"⚠️ Only retrieved {len(chunks)} chunks (requested {top_k}). "
-                    f"This might indicate limited data in Qdrant or "
-                    f"aggressive deduplication."
+                logger.warning(
+                    f"Only retrieved {len(chunks)} chunks (requested {top_k}). Data may be limited or deduplication aggressive."
                 )
-                logger.warning(warning_msg)
 
             return chunks
         except Exception as e:
-            logger.error(f"❌ Search failed: {e}", exc_info=True)
+            logger.error(f"Search failed: {e}", exc_info=True)
             return []
 
     def _initialize(self):
         try:
-            # Load model on CPU (same as indexing)
             logger.info(f"Loading embedding model: {self.embedding_model_name}")
             try:
                 self.encoder = SentenceTransformer(
@@ -159,8 +128,7 @@ class Retriever:
                 )
             except Exception as e1:
                 logger.warning(
-                    f"Primary model load failed: {e1}. "
-                    f"Retrying with safe settings..."
+                    f"Primary model load failed: {e1}. Retrying with safe settings..."
                 )
                 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
                 os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
@@ -171,20 +139,14 @@ class Retriever:
                 )
             logger.info("Embedding model loaded on CPU")
 
-            # Qdrant client setup
-            logger.info(
-                f"Connecting to Qdrant at {self.qdrant_host}:{self.qdrant_port}"
-            )
+            logger.info(f"Connecting to Qdrant at {self.qdrant_host}:{self.qdrant_port}")
             self.client = QdrantClient(host=self.qdrant_host, port=self.qdrant_port)
 
-            # Ensure collection exists (do not create if not found; indexing
-            # service should create)
             try:
                 collections = self.client.get_collections().collections
                 if not any(c.name == self.collection_name for c in collections):
                     logger.warning(
-                        f"Collection '{self.collection_name}' not found in Qdrant. "
-                        f"Waiting for indexing."
+                        f"Collection '{self.collection_name}' not found in Qdrant. Waiting for indexing."
                     )
                 else:
                     logger.info(
@@ -197,7 +159,6 @@ class Retriever:
             raise
 
 
-# Singleton
 _retriever = None
 
 

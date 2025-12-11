@@ -1,4 +1,4 @@
-"""PDF text extraction functionality."""
+"""PDF text extraction."""
 
 import json
 import logging
@@ -14,38 +14,23 @@ import pdfplumber
 import pika
 import pypdf
 
-# Configure logging
 logger = logging.getLogger("extraction.extractor")
 
 
 class PDFExtractor:
-    """Handles PDF text and metadata extraction."""
+    """PDF text and metadata extraction."""
 
     def check_file_type(self, file_path: str) -> str:
-        """Check the file type and return its MIME type."""
+        """Return file MIME type."""
         try:
             mime_type = magic.from_file(file_path, mime=True)
-            if not isinstance(mime_type, str):
-                return str(mime_type)
             return str(mime_type)
         except Exception as e:
-            logger.error(f"Failed to check file type: {str(e)}")
+            logger.error(f"File type check failed: {str(e)}")
             raise
 
     def extract_document(self, file_path: str, source_url: str) -> Dict:
-        """Extract text and metadata from a PDF document using pdfplumber,
-        returning per-page text blocks for semantic chunking.
-        Args:
-            file_path: Path to the PDF file
-            source_url: URL of the document source
-        Returns:
-            Dictionary containing:
-                - page_texts: List of cleaned text blocks, one per page
-                - metadata: Document metadata
-        Raises:
-            ValueError: If file is not a valid PDF
-            FileNotFoundError: If file does not exist
-        """
+        """Extract per-page text and metadata."""
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -53,7 +38,6 @@ class PDFExtractor:
             raise ValueError(f"File is not a PDF: {self.check_file_type(file_path)}")
 
         try:
-            # Extract text per page using pdfplumber
             page_texts = []
             with pdfplumber.open(file_path) as pdf:
                 for page in pdf.pages:
@@ -61,49 +45,24 @@ class PDFExtractor:
                     cleaned = self._basic_clean(text)
                     page_texts.append(cleaned)
 
-            # Extract metadata using PyPDF2
             metadata = self._extract_metadata(file_path, source_url)
-
             return {"page_texts": page_texts, "metadata": metadata}
-
         except Exception as e:
-            logger.error(f"Failed to extract document: {str(e)}")
+            logger.error(f"Document extraction failed: {str(e)}")
             raise
 
     def _basic_clean(self, text: str) -> str:
-        """Perform basic text cleaning for OCR artifacts.
-
-        Args:
-            text: Raw text to clean
-
-        Returns:
-            Cleaned text
-        """
-        # Remove excessive whitespace
+        """Basic normalization for OCR artifacts."""
         text = re.sub(r"\s+", " ", text)
-
-        # Fix common OCR artifacts
-        text = text.replace("|", "I")  # Common I/| confusion
-        text = re.sub(
-            r"(?<=[a-z])\.(?=[A-Z])", ". ", text
-        )  # Fix missing space after period
-
+        text = text.replace("|", "I")
+        text = re.sub(r"(?<=[a-z])\.(?=[A-Z])", ". ", text)
         return text.strip()
 
     def _extract_metadata(self, file_path: str, source_url: str) -> Dict:
-        """Extract metadata from PDF file.
-
-        Args:
-            file_path: Path to the PDF file
-            source_url: URL of the document source
-
-        Returns:
-            Dictionary containing metadata fields
-        """
+        """Extract metadata from PDF."""
         try:
             with open(file_path, "rb") as file:
                 reader = pypdf.PdfReader(file)
-                # Get basic metadata
                 info = reader.metadata if reader.metadata else {}
                 page_count = len(reader.pages)
                 return {
@@ -111,9 +70,8 @@ class PDFExtractor:
                     "pageCount": page_count,
                     "sourceUrl": source_url,
                 }
-
         except Exception as e:
-            logger.error(f"Failed to extract metadata: {str(e)}")
+            logger.error(f"Metadata extraction failed: {str(e)}")
             return {
                 "title": os.path.basename(file_path),
                 "pageCount": 0,
@@ -121,37 +79,21 @@ class PDFExtractor:
             }
 
     def _parse_pdf_date(self, date_str: Optional[str]) -> Optional[str]:
-        """Parse PDF date string into ISO format.
-
-        Args:
-            date_str: PDF date string or None
-
-        Returns:
-            ISO formatted date string or None
-        """
+        """Parse PDF date to ISO format."""
         if not date_str:
             return None
-
         try:
-            # Remove 'D:' prefix and timezone if present
             date_str = date_str.replace("D:", "")[:14]
-            # Parse date
             date = datetime.strptime(date_str, "%Y%m%d%H%M%S")
-            # Return ISO format
             return date.isoformat()
         except Exception:
             return None
 
 
 class ExtractionService:
-    """Service for extracting text and metadata from documents."""
+    """Service for PDF extraction and event publishing."""
 
     def __init__(self, rabbitmq_host: str = "rabbitmq"):
-        """Initialize the service.
-
-        Args:
-            rabbitmq_host: Hostname of the RabbitMQ server
-        """
         from rabbitmq import EventConsumer
 
         self.consumer = EventConsumer(rabbitmq_host)
@@ -159,91 +101,52 @@ class ExtractionService:
         self.ingestion_url = os.getenv("INGESTION_SERVICE_URL", "http://ingestion:8000")
 
     def _handle_event(self, ch, method, properties, body):
-        """Handle incoming RabbitMQ messages.
-
-        Args:
-            ch: Channel
-            method: Method frame
-            properties: Message properties
-            body: Message body
-        """
-        # Call _handle_document_wrapper to ensure proper correlation ID
-        # handling
+        """Top-level event handler."""
         self._handle_document_wrapper(ch, method, properties, body)
 
     def start(self):
         from events import EventTypes
 
-        """Start the service."""
-        logger.info("Starting extraction service...")
-
-        # Subscribe to document.discovered events
-        if self.consumer.subscribe(
-            EventTypes.DOCUMENT_DISCOVERED.value, self._handle_event
-        ):
+        logger.info("Starting extraction service")
+        if self.consumer.subscribe(EventTypes.DOCUMENT_DISCOVERED.value, self._handle_event):
             self.consumer.start_consuming()
         else:
-            raise RuntimeError("Failed to subscribe to events")
+            raise RuntimeError("Event subscription failed")
 
     def _handle_document_wrapper(self, ch, method, properties, body):
-        """Wrapper to ensure correlation ID is preserved before calling
-        handle_document."""
-        # Get or generate correlation ID
+        """Ensure correlation ID and delegate to handler."""
         correlation_id = (
-            properties.correlation_id
-            if properties and properties.correlation_id
-            else str(uuid.uuid4())
+            properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
         )
 
         if not properties or not properties.correlation_id:
             logger.warning(
-                "No correlation ID in message properties, generating new one",
-                extra={
-                    "correlation_id": correlation_id,
-                    "routing_key": (method.routing_key if method else None),
-                },
+                "Missing correlation ID in message; generated new one",
+                extra={"correlation_id": correlation_id, "routing_key": (method.routing_key if method else None)},
             )
-
-            # Create new properties with correlation ID
             properties = pika.BasicProperties(
                 correlation_id=correlation_id,
                 content_type=properties.content_type if properties else None,
-                delivery_mode=2,  # Make message persistent
+                delivery_mode=2,
             )
 
-        # Call handle_document with properties containing correlation ID
         self.handle_document(ch, method, properties, body)
 
     def handle_document(self, ch, method, properties, body):
         from events import DocumentDiscovered, EventTypes
 
-        """Handle a document.discovered event.
-
-        Args:
-            ch: Channel
-            method: Method frame
-            properties: Message properties
-            body: Message body
-        """
-        # Get correlation ID from properties (should be set by wrapper)
+        """Handle document.discovered event."""
         correlation_id = (
-            properties.correlation_id
-            if properties and properties.correlation_id
-            else str(uuid.uuid4())
+            properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
         )
-        logger.info(
-            "Handling document message", extra={"correlation_id": correlation_id}
-        )
+        logger.info("Handling document", extra={"correlation_id": correlation_id})
+
         try:
-            # Parse message body
             message = json.loads(body)
             event_data = message.get("data", {})
 
-            logger.info(
-                "Handling document message", extra={"correlation_id": correlation_id}
-            )
+            logger.info("Handling document", extra={"correlation_id": correlation_id})
 
-            # Deserialize to DocumentDiscovered event  -> Full event structure
             discovered = DocumentDiscovered(
                 eventType=message["eventType"],
                 eventId=message["eventId"],
@@ -252,9 +155,7 @@ class ExtractionService:
                 source=message["source"],
                 version=message["version"],
                 payload=message["payload"],
-                # This is where the document data lives
             )
-            # Extract the actual document data from the payload
 
             logger.info(
                 "Processing document",
@@ -266,36 +167,21 @@ class ExtractionService:
                 },
             )
 
-            # Debug log to inspect the payload of DocumentDiscovered
-            logger.debug("Discovered event: %s", discovered)
+            logger.debug("Discovered event parsed")
 
-            # Extract text and metadata
             start_time = time.time()
             file_path = discovered.payload["filePath"]
-            result = self.extractor.extract_document(
-                file_path, discovered.payload.get("sourceUrl")
-            )
+            result = self.extractor.extract_document(file_path, discovered.payload.get("sourceUrl"))
             extracted_file_time = datetime.now(timezone.utc).isoformat()
-            processing_time = (time.time() - start_time) * 1000  # ms
+            processing_time = (time.time() - start_time) * 1000
 
-            # Extract metadata from the result
             metadata = result.get("metadata", {})
-
-            # Use page count from event if present, otherwise fallback to PDF
-            # extraction
             page_count = metadata.get("pageCount")
-
-            # version to reflect backward-compatible changes
             event_version = os.getenv("EVENT_VERSION", "1.0")
             time_now = datetime.now(timezone.utc).isoformat()
 
-            # get the file type
             fileType = self.extractor.check_file_type(file_path)
-            # Keep only the part after the last '/'  normally it would be
-            # application/pdf
             fileType = fileType.split("/")[-1]
-
-            # Refactor event_data to match the new schema
 
             event_data = {
                 "eventType": "DocumentExtracted",
@@ -304,32 +190,21 @@ class ExtractionService:
                 "correlationId": correlation_id,
                 "source": "extraction-service",
                 "version": event_version,
-                # Incremented version to reflect backward-compatible changes
                 "payload": {
                     "documentId": discovered.payload.get("documentId"),
-                    "textContent": "\n\n".join(
-                        result.get("page_texts", [])
-                    ),  # Ensure page_texts is handled safely
+                    "textContent": "\n\n".join(result.get("page_texts", [])),
                     "page_texts": result.get("page_texts", []),
                     "fileType": fileType,
                     "metadata": {
-                        "title": metadata.get(
-                            "title", "Unknown Title"
-                        ),  # Default to "Unknown Title" if missing
-                        "sourceUrl": discovered.payload.get(
-                            "sourceUrl", "Unknown Source"
-                        ),  # Default to "Unknown Source" if missing
+                        "title": metadata.get("title", "Unknown Title"),
+                        "sourceUrl": discovered.payload.get("sourceUrl", "Unknown Source"),
                         "pageCount": page_count,
                     },
                     "extractedAt": extracted_file_time,
                 },
             }
 
-            logger.info(
-                "DOCUMENT_EXTRACTED event data: %s", json.dumps(event_data, indent=2)
-            )
-
-            # Publish the event with correlation ID
+            logger.info("Prepared DocumentExtracted event")
             if self.consumer.publish(
                 "document.extracted",
                 EventTypes.DOCUMENT_EXTRACTED.value,
@@ -348,27 +223,17 @@ class ExtractionService:
                 )
             else:
                 logger.error(
-                    "Failed to publish extracted event",
-                    extra={
-                        "document_id": discovered.document_id,
-                        "error": "RabbitMQ publish failed",
-                    },
+                    "Publish failed",
+                    extra={"document_id": discovered.document_id, "error": "RabbitMQ publish failed"},
                 )
 
         except Exception as e:
             logger.error(
-                "Failed to process document",
+                "Document processing failed",
                 extra={
-                    "correlation_id": (
-                        correlation_id if "correlation_id" in locals() else None
-                    ),
-                    "document_id": (
-                        event_data.get("document_id")
-                        if "event_data" in locals()
-                        else None
-                    ),
+                    "correlation_id": (correlation_id if "correlation_id" in locals() else None),
+                    "document_id": (event_data.get("document_id") if "event_data" in locals() else None),
                     "error": str(e),
                 },
                 exc_info=True,
             )
-            # TODO: Handle error (dead letter queue?)

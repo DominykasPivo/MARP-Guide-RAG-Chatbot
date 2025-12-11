@@ -47,7 +47,4 @@
 ### **Action:** Implement Tier-1 feature
 **Owner:** Atilla – **Deadline:** End of Week 8
 **Success✅** Additional Tier-1 feature functional.
-<<<<<<< HEAD
-=======
 
->>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee

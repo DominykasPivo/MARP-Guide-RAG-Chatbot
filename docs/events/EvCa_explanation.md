@@ -31,7 +31,7 @@ This file provides detailed explanations for each event in the EvCA.json catalog
 
 ## QueryReceived Event
 - **Published by:** Chat Service
-- **Consumed by:** Chat Service, Retrieval Service
+- **Consumed by:** Retrieval Service
 - **Purpose:** Tracks user queries for monitoring and analytics. Does NOT trigger retrieval (that happens via HTTP).
 - **Usage in Code:**
   - Published: services/chat/app/chat_events.py via publish_query_received_event() in daemon thread
@@ -42,7 +42,7 @@ This file provides detailed explanations for each event in the EvCA.json catalog
 
 ## RetrievalCompleted Event
 - **Published by:** Retrieval Service
-- **Consumed by:** Chat Service, Retrieval Service
+- **Consumed by:** Chat Service
 - **Purpose:** Provides metrics and completion notification for retrieval operations including result count, top score, and latency.
 - **Usage in Code:**
   - Published: services/retrieval/app/retrieval_events.py via publish_retrieval_completed_event() in daemon thread

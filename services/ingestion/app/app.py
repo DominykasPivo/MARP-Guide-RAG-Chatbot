@@ -1,3 +1,5 @@
+"""FastAPI application for the MARP ingestion service."""
+
 import logging
 import os
 import sys
@@ -23,41 +25,34 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 
-
-# Use a writable data directory, configurable via environment variable
 DATA_DIR = os.environ.get("DATA_DIR", "./data")
 os.makedirs(DATA_DIR, exist_ok=True)
 storage = DocumentStorage(DATA_DIR)
 
-# Initialize RabbitMQ event publisher
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
 event_publisher = EventPublisher(host=RABBITMQ_HOST)
 
-# Initialize document discoverer
 storage_dir = DATA_DIR
 document_discoverer = MARPDocumentDiscoverer(storage_dir)
-
 
 app = FastAPI(title="MARP Ingestion Service", version="1.0.0")
 
 
 @app.get("/documents")
 async def list_documents():
-    """List all documents with their metadata."""
+    """List all documents and their metadata."""
     try:
         documents = storage.list_documents()
         return {"documents": documents}
     except Exception as e:
-        logger.error(f"Error listing documents: {str(e)}")
+        logger.error(f"Listing documents failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to list documents")
 
 
 @app.get("/documents/{document_id}")
 async def get_document(document_id: str):
-    """Download the document as PDF using aiofiles."""
-    file_path = storage.get_pdf_path(
-        document_id
-    )  # You may need to implement this method to get the file path
+    """Stream a document PDF to the client."""
+    file_path = storage.get_pdf_path(document_id)
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -77,88 +72,72 @@ async def get_document(document_id: str):
 
 @app.post("/discovery/start")
 async def start_discovery(background_tasks: BackgroundTasks):
-    """Trigger document discovery as a background job."""
+    """Trigger document discovery in the background."""
     correlation_id = str(uuid.uuid4())
 
     def discovery_job():
         try:
-            new_documents = document_discoverer.discover_and_process_documents(
-                correlation_id
-            )
+            new_documents = document_discoverer.discover_and_process_documents(correlation_id)
             events_published = 0
             for doc in new_documents:
                 if publish_document_discovered_event(event_publisher, doc):
                     events_published += 1
             logger.info(
-                f"Background discovery completed: "
-                f"{len(new_documents)} documents, "
-                f"{events_published} events published",
-                extra={"correlation_id": correlation_id},
+                "Background discovery completed.",
+                extra={"correlation_id": correlation_id, "documents": len(new_documents), "events_published": events_published},
             )
         except Exception as e:
-            logger.error(
-                f"Error during background document discovery: {str(e)}",
-                extra={"correlation_id": correlation_id},
-            )
+            logger.error("Background discovery error: %s", str(e), extra={"correlation_id": correlation_id})
 
     background_tasks.add_task(discovery_job)
-    return {
-        "message": "Document discovery started in background",
-        "job_status": "running",
-    }
+    return {"message": "Document discovery started in background", "job_status": "running"}
 
 
 @app.get("/")
 async def home():
-    logger.info("Home endpoint accessed")
+    """Root endpoint to verify service status."""
+    logger.info("Home endpoint accessed.")
     return {"message": "Ingestion Service is running"}
 
 
 @app.get("/health")
 async def health():
-    rabbitmq_status = (
-        "healthy"
-        if event_publisher and event_publisher._ensure_connection()
-        else "unhealthy"
-    )
+    """Health check endpoint."""
+    rabbitmq_status = "healthy" if event_publisher and event_publisher._ensure_connection() else "unhealthy"
     status = {
         "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "service": "ingestion",
         "dependencies": {"rabbitmq": rabbitmq_status},
     }
-    return JSONResponse(
-        content=status, status_code=200 if rabbitmq_status == "healthy" else 503
-    )
+    return JSONResponse(content=status, status_code=200 if rabbitmq_status == "healthy" else 503)
 
 
-def run_discovery_background():
+def run_discovery_background() -> None:
+    """Run periodic document discovery on a background thread."""
+
     def discovery():
-        logger.info("Running auto-discovery on startup and periodically...")
+        logger.info("Starting periodic document discovery.")
         while True:
             try:
-                logger.info("Running document discovery...")
+                logger.info("Running document discovery cycle.")
                 correlation_id = str(uuid.uuid4())
-                new_documents = document_discoverer.discover_and_process_documents(
-                    correlation_id
-                )
+                new_documents = document_discoverer.discover_and_process_documents(correlation_id)
                 for doc in new_documents:
                     publish_document_discovered_event(event_publisher, doc)
                 logger.info(
-                    f"Discovery complete. Documents found: {len(new_documents)}",
-                    extra={"correlation_id": correlation_id},
+                    "Discovery cycle complete.",
+                    extra={"correlation_id": correlation_id, "documents": len(new_documents)},
                 )
             except Exception as e:
-                logger.error(
-                    f"Error during auto-discovery: {str(e)}",
-                    extra={"correlation_id": correlation_id},
-                )
-            logger.info("Discovery sleeping for 10 minutes...")
-            time.sleep(600)  # 10 minutes
+                logger.error("Periodic discovery error: %s", str(e), extra={"correlation_id": correlation_id})
+            logger.info("Sleeping for 10 minutes before next discovery cycle.")
+            time.sleep(600)
 
     threading.Thread(target=discovery, daemon=True).start()
 
 
 @app.on_event("startup")
-def start_background_discovery():
+def start_background_discovery() -> None:
+    """Start the periodic discovery loop on application startup."""
     run_discovery_background()
