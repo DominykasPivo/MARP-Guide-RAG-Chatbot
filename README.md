@@ -120,7 +120,7 @@ graph LR
 ```
 
 
-## **🧱 Component Breakdown and Responsibilities**
+## **🧱 4\. Component Breakdown and Responsibilities**
 
 
 | Component | Function / Role |
@@ -156,8 +156,72 @@ graph LR
 5. **Response:** Answers presented with citations (title, page, URL)
 
 
+## **5\. Setup and Run Instructions**
 
-## **5\. Testing & Quality Assurance**
+### **Prerequisites**
+
+1. **Docker & Docker Compose:** Install Docker Desktop or Docker Engine with Compose plugin
+2. **Git:** Clone this repository
+3. **API Keys:** OpenRouter API key for LLM access (or configure alternative LLM provider)
+
+### **Quick Start**
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/DomasB123/MARP-Guide-RAG-Chatbot.git
+   cd MARP-Guide-RAG-Chatbot
+   ```
+
+2. **Set up environment variables:**
+   ```bash
+   # Linux/Mac
+   ./scripts/setup.sh
+   
+   # Windows PowerShell
+   .\scripts\setup.ps1
+   ```
+   
+   Or manually:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration (API keys, etc.)
+   ```
+
+3. **Start all services:**
+   ```bash
+   docker-compose up --build
+   ```
+
+4. **Access the application:**
+   - Frontend: http://localhost:8004
+   - RabbitMQ Management: http://localhost:15672 (guest/guest)
+
+### **Development Setup**
+
+For local development without Docker:
+
+1. **Install Python 3.10-3.12**
+2. **Install dependencies:**
+   ```bash
+   pip install -r services/chat/requirements.txt
+   pip install -r services/ingestion/requirements.txt
+   # ... repeat for other services
+   ```
+3. **Start infrastructure:**
+   ```bash
+   docker-compose up rabbitmq qdrant
+   ```
+4. **Run services individually:**
+   ```bash
+   cd services/chat
+   python -m app.app
+   ```
+
+---
+
+
+
+## **6\. Testing & Quality Assurance**
 
 [![CI Status](https://github.com/DomasB123/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/DomasB123/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/DomasB123/MARP-Guide-RAG-Chatbot/branch/main/graph/badge.svg)](https://codecov.io/gh/DomasB123/MARP-Guide-RAG-Chatbot)
@@ -279,7 +343,7 @@ For more details, see [`docs/CI_TOOLS.md`](docs/CI_TOOLS.md), which includes:
 
 ---
 
-## **6\. Configuration**
+## **7\. Configuration**
 
 ### **Environment Variables**
 
@@ -315,7 +379,7 @@ OPENROUTER_API_KEY=your_key_here
 
 ---
 
-## **7\. Deployment & Ports**
+## **8\. Deployment & Ports**
 
 All services communicate via RabbitMQ events and REST APIs. The Chat service serves the frontend on port 8005.
 
@@ -332,68 +396,6 @@ All services communicate via RabbitMQ events and REST APIs. The Chat service ser
 | Auth | 8006 | **Internal:** Authentication Broker |
 ---
 
-## **8\. Setup and Run Instructions**
-
-### **Prerequisites**
-
-1. **Docker & Docker Compose:** Install Docker Desktop or Docker Engine with Compose plugin
-2. **Git:** Clone this repository
-3. **API Keys:** OpenRouter API key for LLM access (or configure alternative LLM provider)
-
-### **Quick Start**
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/DomasB123/MARP-Guide-RAG-Chatbot.git
-   cd MARP-Guide-RAG-Chatbot
-   ```
-
-2. **Set up environment variables:**
-   ```bash
-   # Linux/Mac
-   ./scripts/setup.sh
-   
-   # Windows PowerShell
-   .\scripts\setup.ps1
-   ```
-   
-   Or manually:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration (API keys, etc.)
-   ```
-
-3. **Start all services:**
-   ```bash
-   docker-compose up --build
-   ```
-
-4. **Access the application:**
-   - Frontend: http://localhost:8004
-   - RabbitMQ Management: http://localhost:15672 (guest/guest)
-
-### **Development Setup**
-
-For local development without Docker:
-
-1. **Install Python 3.10-3.12**
-2. **Install dependencies:**
-   ```bash
-   pip install -r services/chat/requirements.txt
-   pip install -r services/ingestion/requirements.txt
-   # ... repeat for other services
-   ```
-3. **Start infrastructure:**
-   ```bash
-   docker-compose up rabbitmq qdrant
-   ```
-4. **Run services individually:**
-   ```bash
-   cd services/chat
-   python -m app.app
-   ```
-
----
 
 ## **9\. Architecture**
 
@@ -445,6 +447,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
