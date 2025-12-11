@@ -224,18 +224,15 @@ jobs:
           # Show disk space
           df -h
 
-      - name: Build service images in parallel
+      - name: Build service images sequentially
         run: |
-          # Build all service images in parallel for faster builds
-          docker build -f services/auth/Dockerfile -t marp-auth:e2e services/auth &
-          docker build -f services/ingestion/Dockerfile -t marp-ingestion:e2e services/ingestion &
-          docker build -f services/extraction/Dockerfile -t marp-extraction:e2e services/extraction &
-          docker build -f services/indexing/Dockerfile -t marp-indexing:e2e services/indexing &
-          docker build -f services/retrieval/Dockerfile -t marp-retrieval:e2e services/retrieval &
-          docker build -f services/chat/Dockerfile -t marp-chat:e2e services/chat &
-          
-          # Wait for all builds to complete
-          wait
+          # Build service images one at a time to avoid disk space issues
+          docker build -f services/auth/Dockerfile -t marp-auth:e2e services/auth
+          docker build -f services/ingestion/Dockerfile -t marp-ingestion:e2e services/ingestion
+          docker build -f services/extraction/Dockerfile -t marp-extraction:e2e services/extraction
+          docker build -f services/indexing/Dockerfile -t marp-indexing:e2e services/indexing
+          docker build -f services/retrieval/Dockerfile -t marp-retrieval:e2e services/retrieval
+          docker build -f services/chat/Dockerfile -t marp-chat:e2e services/chat
           echo "All service images built successfully"
 
       - name: Install Docker Compose v2
