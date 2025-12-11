@@ -66,81 +66,91 @@ The **API Gateway** remains the single public entry point; all other services ar
 
 This guide provides the necessary steps to set up and run the entire microservices architecture using Docker Compose.
 
-**Prerequisites:**
+---
 
-1. **Docker:** Ensure Docker and Docker Compose (or Docker Desktop) are installed and running on your system.  
-2. **Codebase:** The source code for each service must be cloned and organized into directories matching the service names (e.g., apigateway/, authservice/, ingestionservice/, etc.).
+## **Prerequisites**
 
-## **1\. Project Structure Verification**
+1. **Docker**: Install Docker (20.10+) and Docker Compose (or Docker Desktop) on your system.
+2. **Codebase**: Clone the repository and ensure the project structure matches the expected layout.
+3. **Environment Variables**: Copy `.env.example` to `.env` and configure the necessary variables (e.g., API keys, database credentials).
 
-Before proceeding, verify that your project directory structure looks like this:
+---
 
-/chatbot  
-|-- docker-compose.yml   \<-- The file generated above  
-|-- README.md  
-|-- /apigateway  
-|   |-- Dockerfile  
-|-- /auth  
-|   |-- Dockerfile  
-|-- /ingestion  
-|   |-- Dockerfile  
-|-- /extraction  
-|   |-- Dockerfile  
-|-- /indexing  
-|   |-- Dockerfile  
-|-- /chat  
-|   |-- Dockerfile  
-|-- /retrieval  
-|   |-- Dockerfile  
-|-- .env (Optional, for custom configuration)
+## **1. Project Structure Verification**
 
-## 
+Ensure your project directory structure looks like this:
 
-## **2\. Launching the System**
+```
+/chatbot
+|-- docker-compose.yml
+|-- README.md
+|-- .env.example
+|-- .env
+|-- /apigateway
+|   |-- Dockerfile
+|-- /auth
+|   |-- Dockerfile
+|-- /ingestion
+|   |-- Dockerfile
+|-- /extraction
+|   |-- Dockerfile
+|-- /indexing
+|   |-- Dockerfile
+|-- /chat
+|   |-- Dockerfile
+|-- /retrieval
+|   |-- Dockerfile
+```
 
-Execute the following command in the root directory where your docker-compose.yml file is located:
+---
 
-#Step 1 Building
+## **2. Launching the System**
 
-docker-compose build ingestion extraction indexing --no-cache
+Run the following commands in the root directory where `docker-compose.yml` is located:
 
-#Step 2 Running
+### **Step 1: Build Services**
+```bash
+docker-compose build --no-cache
+```
 
-docker-compose up ingestion extraction indexing -d
+### **Step 2: Start Services**
+```bash
+docker-compose up --build -d
+```
 
+---
 
+## **3. System Verification (Health Check)**
 
+Verify the status of the system and access the components:
 
+| Component         | Status Check Command               | Access URL (Local)           | Notes                                      |
+|-------------------|------------------------------------|------------------------------|--------------------------------------------|
+| **All Containers**| `docker-compose ps`               | N/A                          | All containers should be in the Up state. |
+| **API Gateway**   | `docker-compose logs apigateway`  | http://localhost:8000        | Entry point for the backend.              |
+| **RabbitMQ UI**   | N/A                                | http://localhost:15672       | Default credentials: guest/guest.         |
+| **Auth Service**  | N/A                                | http://localhost:8001/health | Check the `/health` endpoint.             |
+| **Chat Service**  | N/A                                | http://localhost:8005/health | Check the `/health` endpoint.             |
 
+---
 
-| Command | Purpose |
-| :---- | :---- |
-| up | Starts all services defined in the configuration. |
-| \--build | Forces Docker to rebuild the images for the application services (e.g., apigateway, authservice) based on their Dockerfiles. **Crucial for initial setup or after code changes.** |
-| \-d | Runs the containers in **detached** mode (in the background). |
+## **4. Stopping and Cleanup**
 
-## **4\. System Verification (Health Check)**
-
-After running the up command, the system should be fully operational. You can verify the status and access the infrastructure components:
-
-| Component | Status Check Command | Access URL (Local) | Notes |
-| :---- | :---- | :---- | :---- |
-| **All Containers** | docker-compose ps | N/A | All containers should be in the Up state. |
-| **API Gateway** | Check logs: docker-compose logs api\_gateway | http://localhost:8000 | This is the entry point for the React Frontend. |
-| **RabbitMQ UI** | N/A | http://localhost:15672 | Log in with the credentials defined in .env (default: guest/guest). |
-
-## **5\. Stopping and Cleanup**
-
-To stop all running services and keep the data volumes (for faster restarts):
-
+### **Stop Services**
+To stop all running services while keeping data volumes:
+```bash
 docker-compose stop
+```
 
-To stop all services and remove the containers, networks, and persistent data volumes:
+### **Remove Services and Data**
+To stop all services and remove containers, networks, and volumes:
+```bash
+docker-compose down -v
+```
 
-docker-compose down \-v
+**Warning**: The `-v` flag removes all data volumes, including database and vector data. Backup your data before using this command.
 
-**Note:** The \-v flag removes the postgres\_data and chromadb\_data volumes. **All database and vector data will be permanently deleted.** Only use this command if you want a clean restart.
-
+---
 
 
 
