@@ -330,6 +330,7 @@ pip install -r services/ingestion/requirements.txt
 pip install -r services/extraction/requirements.txt
 pip install -r services/indexing/requirements.txt
 pip install -r services/retrieval/requirements.txt
+pip install -r services/auth/requirements.txt
 ```
 
 **Then install requirements for testing:**

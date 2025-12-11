@@ -62,7 +62,7 @@ jobs:
         run: bandit -r services/
 
       - name: Run Safety (dependency security scan)  # Ignore issue 71846 for qdrant-client version compatibility with program code.
-        run: safety check --policy-file .github/workflows/.safety-policy.yml -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt
+        run: safety check --policy-file .github/workflows/.safety-policy.yml -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt -r services/auth/requirements.txt
 
   unit-tests:
     runs-on: ubuntu-22.04
@@ -90,6 +90,7 @@ jobs:
           pip install -r services/indexing/requirements.txt
           pip install -r services/chat/requirements.txt
           pip install -r services/retrieval/requirements.txt
+          pip install -r services/auth/requirements.txt
 
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
@@ -142,6 +143,7 @@ jobs:
           pip install -r services/indexing/requirements.txt
           pip install -r services/chat/requirements.txt
           pip install -r services/retrieval/requirements.txt
+          pip install -r services/auth/requirements.txt
 
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
@@ -171,7 +173,7 @@ jobs:
     needs: [integration-tests]
     strategy:
       matrix:
-        service: [ingestion, extraction, indexing, retrieval, chat]
+        service: [ingestion, extraction, indexing, retrieval, chat, auth]
     steps:
       - uses: actions/checkout@v4
 

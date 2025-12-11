@@ -9,7 +9,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-added-large-files
         args: ['--maxkb=1000']
-
+      
 
   # Python code formatting
   - repo: https://github.com/psf/black
@@ -34,17 +34,6 @@ repos:
         args: ['--max-line-length=88', '--extend-ignore=E203,W503']
         exclude: ^(docs/|scripts/)
 
-  # Type checking
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        args: ['--ignore-missing-imports', '--python-version=3.12']
-        additional_dependencies:
-          - 'types-requests'
-          - 'types-pyyaml'
-        exclude: ^(tests/|docs/|scripts/)
-
   # Security scanning
   - repo: https://github.com/PyCQA/bandit
     rev: 1.9.2
@@ -61,3 +50,6 @@ repos:
       - id: python-safety-dependencies-check
         args: ['--policy-file=.github/workflows/.safety-policy.yml']
         files: requirements\.txt$
+
+
+

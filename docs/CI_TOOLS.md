@@ -80,7 +80,7 @@ mypy services/
 ### Security Scanning
 ```
 bandit -r services/
-safety check --policy-file ... -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt
+safety check --policy-file ... -r services/ingestion/requirements.txt -r services/extraction/requirements.txt -r services/indexing/requirements.txt -r services/chat/requirements.txt -r services/retrieval/requirements.txt -r services/auth/requirements.txt
 ```
 
 ## CI Workflow Steps
@@ -112,6 +112,7 @@ The CI pipeline runs multiple jobs in parallel using Python 3.11 (and 3.10, 3.12
    -r services/ingestion/requirements.txt \
    -r services/extraction/requirements.txt \
    -r services/indexing/requirements.txt \
+   -r services/retrieval/requirements.txt \
    -r services/chat/requirements.txt \
    -r services/retrieval/requirements.txt`
 
