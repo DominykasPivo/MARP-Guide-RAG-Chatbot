@@ -64,20 +64,32 @@ def filter_top_citations(
         logger.warning("⚠️ filter_top_citations: No citations to filter")
         return []
 
+    for c in citations:
+        if hasattr(c, "page") and c.page is not None:
+            c.page = max(0, c.page - 1)
+
     log_msg = (
         f"🔍 Filtering {len(citations)} citations "
         f"(top_n={top_n}, min_citations={min_citations})"
     )
     logger.info(log_msg)
     sorted_citations = sorted(citations, key=lambda c: c.score, reverse=True)
-    # Ensure we return at least min_citations (2), but no more than top_n
     num_to_return = max(min_citations, min(len(sorted_citations), top_n))
     result = sorted_citations[:num_to_return]
-    citation_info = [(c.title, c.page, c.score) for c in result]
+    # Deduplicate citations by (title, page)
+    seen = set()
+    deduped = []
+    for c in result:
+        key = (c.title, c.page)
+        if key not in seen:
+            deduped.append(c)
+            seen.add(key)
+    citation_info = [(c.title, c.page, c.score) for c in deduped]
     logger.info(
-        f"✅ Returning {len(result)} citations after filtering: {citation_info}"
+        f"✅ Returning {len(deduped)} citations after filtering and deduplication: "
+        f"{citation_info}"
     )
-    return result
+    return deduped
 
 
 # Async version of chunk retrieval
