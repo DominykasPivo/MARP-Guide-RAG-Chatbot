@@ -242,7 +242,7 @@ jobs:
 
       - name: Start Docker Compose services
         run: |
-          docker-compose -f docker-compose.e2e.yml up -d
+          docker compose -f docker-compose.e2e.yml up -d
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
@@ -270,7 +270,7 @@ jobs:
             
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Service on port $port failed to become healthy"
-              docker-compose -f docker-compose.e2e.yml logs
+              docker compose -f docker-compose.e2e.yml logs
               exit 1
             fi
           done
@@ -298,9 +298,9 @@ jobs:
         if: failure()
         run: |
           echo "=== Docker Compose Services Logs ==="
-          docker-compose -f docker-compose.e2e.yml logs --tail=100
+          docker compose -f docker-compose.e2e.yml logs --tail=100
 
       - name: Stop Docker Compose services
         if: always()
         run: |
-          docker-compose -f docker-compose.e2e.yml down -v
+          docker compose -f docker-compose.e2e.yml down -v
