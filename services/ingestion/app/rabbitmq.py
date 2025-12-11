@@ -126,7 +126,7 @@ class EventPublisher:
         """
         # Use explicitly provided correlation_id or fall back to event's correlationId
         final_correlation_id = correlation_id or event.correlationId
-        
+
         # Convert event to dictionary
         event_data = {
             "eventType": event.eventType,
