@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document provides comprehensive information about the testing infrastructure for the MARP Guide RAG Chatbot project. The project uses a multi-layered testing approach with unit, integration, and system (E2E) tests to ensure code quality, reliability, and maintainability. Integration tests in this project use fakes and mocks for external dependencies, while system tests validate the full stack with all services running.
+This document provides comprehensive information about the testing infrastructure for the MARP Guide RAG Chatbot project. The project uses a multi-layered testing approach with unit, integration, and end-to-end tests to ensure code quality, reliability, and maintainability.
 
 ### Test Statistics
 
-- **Total Tests**: 287 tests (190 unit + 97 integration)
+- **Total Tests**: 287+ tests across unit and integration suites
 - **Status**: ✅ All passing, 0 skipped
-- **Test Files**: 8 unit test files, 7 integration test files
+- **Test Files**: 3 unit test files, 6 integration test files
 - **Services Covered**: All 5 microservices (ingestion, extraction, indexing, retrieval, chat)
 - **Coverage Target**: ≥85% combined coverage
 
@@ -56,24 +56,19 @@ tests/
 ├── conftest.py                     # Shared fixtures and configuration
 ├── unit/                           # Unit tests (fast, isolated)
 │   ├── __init__.py
-│   ├── test_chat_service.py       # Chat service events & models
-│   ├── test_chunking.py           # Semantic chunking logic
-│   ├── test_citation_extraction.py # Citation extraction
-│   ├── test_discoverer.py         # Document discovery
-│   ├── test_events.py             # Event schemas
-│   ├── test_retrieval.py          # Consolidated retrieval tests (all retrieval logic)
-│   ├── test_retriever.py          # Vector search retriever
-│   └── test_storage.py            # Document storage
+│   ├── test_chat.py               # Chat service (RAG, citations, events)
+│   ├── test_chat_service.py       # Chat service (MARP quality, filtering)
+│   └── test_retrieval.py          # Retrieval service (all retrieval logic)
 │
 ├── integration/                    # Integration tests (slower, multi-component)
 │   ├── __init__.py
-│   ├── test_e2e_pipeline.py       # Complete pipeline workflows
-│   ├── test_end_to_end_flow.py    # Event handling & schema validation
-│   ├── test_indexing_flow.py      # Document indexing pipeline
-│   ├── test_ingestion_app.py      # Ingestion API integration
-│   ├── test_ingestion_flow.py     # End-to-end ingestion
+│   ├── test_e2e_pipeline.py       # Complete pipeline with real PDFs
+│   ├── test_end_to_end_flow.py    # Event flows & schema validation
+│   ├── test_indexing_flow.py      # Indexing pipeline tests
+│   ├── test_ingestion_app.py      # Ingestion FastAPI endpoints
+│   ├── test_ingestion_flow.py     # End-to-end ingestion with fakes
 │   ├── test_search_api.py         # Search API integration
-│   └── test_vector_components.py  # Vector DB operations
+│   └── test_vector_components.py  # Vector store & DB client tests
 │
 └── coverage/                       # Coverage reports
     ├── unit.xml                    # Unit test coverage (XML)
@@ -145,19 +140,6 @@ pytest tests/integration/ -v
 pytest tests/integration/ --cov --cov-report=html:coverage/integration_html --cov-report=xml:coverage/integration.xml
 ```
 
-<<<<<<< HEAD:docs/TEST_INFO.md
-=======
-### Run System (E2E) Tests in Docker
-
-```bash
-# Run system/E2E tests in isolated containers (all services up)
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-
-# Clean up after tests
-docker-compose -f docker-compose.test.yml down -v
-```
-
->>>>>>> d367f016bfe305e5681ebeab96c9ccbd160d3dee:tests/TEST_INFO.md
 ---
 
 ## Unit Tests
@@ -166,7 +148,7 @@ Unit tests focus on testing individual functions, classes, and modules in isolat
 
 ### Test Summary
 
-- **Total Unit Tests**: 190 tests across 8 test files
+- **Total Unit Tests**: 100+ tests across 3 test files
 - **Status**: ✅ All passing, 0 skipped
 - **Coverage Target**: ≥80% line coverage
 
@@ -174,114 +156,122 @@ Unit tests focus on testing individual functions, classes, and modules in isolat
 
 | Service | Test File | Focus Areas | Tests |
 |---------|-----------|-------------|-------|
-| **Chat** | `test_chat_service.py` | Event handling, LLM integration, response generation | 30+ |
-| **Retrieval** | `test_retrieval.py` (consolidated)<br>`test_retriever.py` | Vector search<br>Query processing<br>Result ranking<br>RabbitMQ integration<br>API endpoints | 45+ |
-| **Indexing** | `test_chunking.py`<br>`test_events.py` | Semantic chunking<br>Token limits<br>Embedding generation<br>Event schemas | 35+ |
-| **Ingestion** | `test_discoverer.py`<br>`test_storage.py` | Document discovery<br>PDF extraction<br>File system storage<br>URL parsing | 40+ |
-| **Extraction** | `test_citation_extraction.py` | Citation parsing<br>Metadata extraction<br>Pattern matching | 40+ |
+| **Chat** | `test_chat.py`<br>`test_chat_service.py` | RAG prompt generation<br>Citation extraction & filtering<br>Event structures<br>Correlation ID tracking<br>MARP quality requirements | 50+ |
+| **Retrieval** | `test_retrieval.py` | Vector search<br>Query processing<br>Result ranking<br>RabbitMQ integration<br>API endpoints | 50+ |
 
-**Note**: `test_retrieval.py` consolidates previously separate files (`test_retrieval_app.py`, `test_retrieval_rabbitmq.py`, `test_retrieval_service.py`, and original `test_retrieval.py`) for better maintainability.
+### Key Test Files
 
-### Key Testing Patterns
+#### `test_chat.py` (Unit Tests)
 
-#### Mocking External Services
+Comprehensive tests for chat service business logic:
 
-```python
-from unittest.mock import Mock, patch
+- **RAG Prompt Generation**: Tests for `build_rag_prompt()` with chunks, empty chunks, formatting
+- **Citation Extraction**: Tests for `extract_citations()` including filtering (<0.3 threshold), deduplication, sorting
+- **Citation Filtering**: Tests for `filter_top_citations()` with min_citations enforcement
+- **Event Structures**: Tests for `QueryReceived`, `ChunksRetrieved` event creation
+- **Correlation ID**: Tests for correlation ID propagation through events
+- **Context Building**: Tests for multi-chunk context assembly
 
-def test_vector_search(mock_qdrant):
-    """Test vector search with mocked Qdrant"""
-    mock_qdrant.search.return_value = [
-        {"id": "chunk-1", "score": 0.95}
-    ]
+#### `test_chat_service.py` (Unit Tests)
 
-    result = search_vectors(query="test")
-    assert len(result) == 1
-    assert result[0]["score"] == 0.95
-```
+MARP-specific chat quality tests:
 
-#### Testing Events
+- **Citation Filtering**: Minimum citation enforcement, score-based sorting
+- **Event Handling**: Query received, chunks retrieved event structures
+- **Response Formatting**: Answer formatting with citations, required fields
+- **Context Awareness**: Context from retrieved chunks with metadata
 
-```python
-def test_document_extracted_event():
-    """Test DocumentExtracted event creation"""
-    event = DocumentExtracted(
-        eventType="DocumentExtracted",
-        eventId="evt-001",
-        timestamp="2025-01-01T00:00:00Z",
-        correlationId="corr-001",
-        source="extraction-service",
-        version="1.0",
-        payload={
-            "documentId": "doc-001",
-            "textContent": "Sample text"
-        }
-    )
+#### `test_retrieval.py` (Consolidated Unit Tests)
 
-    assert event.eventType == "DocumentExtracted"
-    assert event.payload["documentId"] == "doc-001"
-```
+All retrieval service testing consolidated into one file:
 
-#### Testing API Endpoints
-
-```python
-from fastapi.testclient import TestClient
-
-def test_health_endpoint():
-    """Test health check endpoint"""
-    client = TestClient(app)
-    response = client.get("/health")
-
-    assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
-```
+- **Vector Search**: Query embedding, similarity search, result ranking
+- **API Endpoints**: `/search` endpoint validation, error handling
+- **Result Processing**: Deduplication, score filtering, metadata preservation
+- **RabbitMQ Integration**: Event publishing, consumption, error recovery
+- **Service Health**: Health check endpoints, dependency status
 
 ---
 
 ## Integration Tests
 
-Integration tests validate interactions between multiple components and services, using fakes and mocks for external dependencies. These tests do not require the full application stack to be running and are designed for speed and reliability.
+Integration tests validate interactions between multiple components and services, using fakes and mocks for external dependencies.
 
 ### Test Summary
 
-- **Total Integration Tests**: 97 tests across 7 test files
+- **Total Integration Tests**: 150+ tests across 6 test files
 - **Status**: ✅ All passing, 0 skipped
 - **Coverage Target**: ≥70% line coverage
 
-### Test Scenarios
+### Test Files Overview
 
-1. **Document Ingestion Flow** (`test_ingestion_flow.py`):
-   - Document discovery from URL (using fakes)
-   - PDF download and extraction (mocked)
-   - Storage in file system (fake storage)
-   - Event publishing to RabbitMQ (mocked)
+#### `test_ingestion_flow.py`
 
-2. **Indexing Flow** (`test_indexing_flow.py`):
-   - Semantic chunking with token limits
-   - Embedding generation (mocked)
-   - Vector storage in Qdrant (fake client)
-   - Event publishing (mocked)
+End-to-end ingestion with fakes and mocks:
 
-3. **Search API Integration** (`test_search_api.py`):
-   - Query endpoint
-   - Vector similarity search (mocked)
-   - Result ranking and filtering
-   - Response formatting
+- **PDF Link Extraction**: Tests for `PDFLinkExtractor` with sample HTML
+- **Document Storage**: Store, retrieve, delete, update operations
+- **Document Discovery**: Skip unchanged, detect updates
+- **Fake Components**: `FakeQdrantClient`, `FakeRabbitMQ` for isolated testing
+- **Edge Cases**: Corrupted index, concurrent access, missing files
 
-4. **Event-Driven Workflows** (`test_end_to_end_flow.py`):
-   - Event consumption and schema validation
-   - Message processing across services (using fakes)
-   - Error handling and retries
-   - Event correlation
-   - End-to-end pipeline integration (simulated)
+#### `test_ingestion_app.py`
 
-### Integration Test Best Practices
+Ingestion service FastAPI application tests:
 
-1. **Use Fakes/Stubs/Mocks**: Create lightweight fakes and mocks for external services and dependencies
-2. **Test Boundaries**: Focus on service interactions, not internal logic
-3. **Clean State**: Reset state between tests
-4. **Realistic Data**: Use production-like test data
-5. **End-to-End Flows**: For true E2E, use system tests with all services running
+- **Endpoints**: `/`, `/health`, `/documents`, `/documents/{id}`, `/discovery/start`
+- **Health Checks**: RabbitMQ dependency status
+- **Background Tasks**: Discovery background execution, threading
+- **Error Handling**: Storage errors, missing documents, discovery failures
+
+#### `test_search_api.py`
+
+Search API integration tests:
+
+- **Search Endpoint**: `/search` with query validation, empty/missing queries
+- **Result Validation**: Score filtering, deduplication, pagination
+- **Edge Cases**: Large top_k, invalid top_k, special characters, Unicode queries
+- **Error Handling**: Malformed requests, empty database, partial metadata
+
+#### `test_vector_components.py`
+
+Vector store and DB client tests:
+
+- **VectorStore Initialization**: Environment variables, defaults
+- **Collection Management**: Refresh collection, collection existence checks
+- **Query Operations**: `query_by_text()` with limits, exception handling
+- **Performance**: Long query truncation (100 chars)
+
+#### `test_indexing_flow.py`
+
+Document indexing pipeline tests:
+
+- **Embedding Generation**: Vector creation, structure validation
+- **Qdrant Integration**: Client initialization, chunk storage
+- **Event Generation**: `ChunksIndexed` event creation, correlation
+- **Metadata Preservation**: Chunk metadata structure, index assignment
+- **RabbitMQ**: Event publishing structure, exchange configuration
+
+#### `test_end_to_end_flow.py`
+
+Event-driven workflow and schema validation:
+
+- **Correlation ID Propagation**: Through ingestion → extraction → indexing → retrieval → chat
+- **Event Schemas**: `DocumentDiscovered`, `DocumentExtracted`, `ChunksIndexed`, `QueryReceived`, `ChunksRetrieved`
+- **Event Serialization**: JSON serialization/deserialization
+- **Error Handling**: Malformed events, missing fields, empty content
+- **Document Lifecycle**: Complete flow validation
+
+#### `test_e2e_pipeline.py`
+
+Complete pipeline with real MARP PDFs:
+
+- **Ingestion → Extraction**: Document storage, text extraction
+- **Extraction → Indexing**: Chunking, embedding generation
+- **Indexing → Retrieval**: Vector search (mocked)
+- **Full Pipeline**: Complete document lifecycle
+- **Data Quality**: No data loss, chunk sizing, text cleaning
+- **Performance**: Extraction and chunking performance benchmarks
 
 ---
 
@@ -423,38 +413,35 @@ class Test[ComponentName]:
 ```python
 """Integration tests for [feature_name]"""
 import pytest
-from fastapi.testclient import TestClient
+from unittest.mock import Mock, patch
 
 
 @pytest.fixture
-def test_client():
-    """Create test client for API testing"""
-    from app import app
-    return TestClient(app)
+def fake_external_service():
+    """Create fake external service for testing"""
+    class FakeService:
+        def __init__(self):
+            self.data = []
+        
+        def store(self, item):
+            self.data.append(item)
+            return True
+    
+    return FakeService()
 
 
-def test_[endpoint_name]_integration(test_client):
-    """Test [endpoint_name] end-to-end flow"""
+def test_[component]_integration(fake_external_service):
+    """Test [component] with fake dependencies"""
     # Arrange
-    request_data = {"query": "test"}
+    test_data = {"key": "value"}
 
     # Act
-    response = test_client.post("/endpoint", json=request_data)
+    result = component_under_test(test_data, fake_external_service)
 
     # Assert
-    assert response.status_code == 200
-    assert "expected_field" in response.json()
+    assert result is not None
+    assert len(fake_external_service.data) == 1
 ```
-
-### Testing Best Practices
-
-1. **Use Descriptive Names**: Test names should describe what is being tested
-2. **Follow AAA Pattern**: Arrange, Act, Assert
-3. **One Assertion Per Test**: Focus on single behavior
-4. **Use Fixtures**: Share setup code between tests
-5. **Mock External Dependencies**: Keep tests fast and reliable
-6. **Test Edge Cases**: Invalid input, boundary conditions, errors
-7. **Avoid Test Interdependence**: Each test should be independent
 
 ---
 
@@ -604,11 +591,15 @@ When adding new features:
 ## Summary
 
 This testing guide provides comprehensive information about:
-- ✅ Test structure and organization
-- ✅ Running unit, integration, and system (E2E) tests
+- ✅ Test structure and organization (3 unit files, 6 integration files)
+- ✅ Running unit and integration tests
 - ✅ Code coverage measurement
 - ✅ CI/CD integration
-- ✅ Writing effective tests
+- ✅ Writing effective tests with fakes/mocks
 - ✅ Troubleshooting common issues
+
+**Key Test Files:**
+- **Unit**: `test_chat.py`, `test_chat_service.py`, `test_retrieval.py`
+- **Integration**: `test_ingestion_flow.py`, `test_ingestion_app.py`, `test_search_api.py`, `test_vector_components.py`, `test_indexing_flow.py`, `test_end_to_end_flow.py`, `test_e2e_pipeline.py`
 
 For questions or issues, please refer to the [project documentation](./docs/) or open a GitHub issue.
