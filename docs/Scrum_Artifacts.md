@@ -2,16 +2,22 @@
 
 This backlog contains all known features, user stories, and technical debt required to complete the project, prioritized from highest to lowest.
 
+
 | ID | Feature / User Story | Dependencies | Notes |
 | :---- | :---- | :---- | :---- |
-| **PBL-01** | **Core RAG Chat Flow** | Docker Setup | Implement ChatService \-\> RetrievalService \-\> Orchestrator (Single LLM) \-\> Frontend flow. |
+| **PBL-01** | **Core RAG Chat Flow** | Docker Setup | Implement ChatService \\> RetrievalService \\> Orchestrator (Single LLM) \\> Frontend flow. |
 | **PBL-02** | **Docker Compose Setup** | N/A | Fully functional docker-compose.yml and services for local development. |
-| **PBL-03** | **Synchronous API Gateway** | PBL-02 | Set up API Gateway with REST endpoints for /chat and /document/upload. |
-|  **PBL-04** |  **Document Ingestion Pipeline (Synchronous)** |  PBL-02 |  Ingestion \-\> Extraction \-\> Indexing (Blocking REST chain, as per current architecture). |
-| **PBL-05** | **Frontend (React) Base UI** | PBL-03 | Basic chat input, conversation history display, and document upload UI. |
+| **PBL-03** | **Synchronous API Gateway** | PBL-02 | Set up API Gateway with REST endpoints for /chat and /document/upload. Transitioned to FastAPI for better performance. |
+| **PBL-04** | **Document Ingestion Pipeline (Synchronous)** | PBL-02 | Ingestion \\> Extraction \\> Indexing (Blocking REST chain, as per current architecture). |
+| **PBL-05** | **Frontend (React) Base UI** | PBL-03 | Basic chat input, conversation history display, and document upload UI. Enhanced with error handling and conversation history. |
 | **PBL-06** | **User Chat History Storage** | PBL-06 | Scoped storage/retrieval of user chat sessions in PostgreSQL. |
 | **PBL-07** | **Error Handling & Logging** | PBL-01, PBL-04 | Standardized error response format across all microservices. |
-| **PBL-8** | **Comprehensive Unit Tests** | All Services | Target 80% coverage for core business logic. |
+| **PBL-08** | **Comprehensive Unit Tests** | All Services | Target 80% coverage for core business logic. |
+| **PBL-09** | **Mock Services for Testing** | PBL-07 | Implement mock services for early integration testing. |
+| **PBL-10** | **Authentication Service** | PBL-03 | Implemented authentication service for user validation and session management. |
+| **PBL-11** | **Multi-Model Comparison** | PBL-01 | Added support for comparing responses from multiple LLMs to improve accuracy and user experience. |
+
+
 
 # **Sprint 1 Log: Core Infrastructure and RAG Foundation**
 
@@ -64,10 +70,10 @@ This backlog contains all known features, user stories, and technical debt requi
 
 * **FastAPI Transition:** The switch from Flask to FastAPI was smoother than expected, with noticeable performance improvements.
 * **Mock Services:** Early integration testing with mock services saved significant debugging time.
-* **Frontend Enhancements:** The improved UI received positive feedback from stakeholders.
 
 ## **2. What Could Be Improved?**
 
 * **Documentation Updates:** Some team members found it challenging to keep up with the changes in API endpoints during the transition. **Action:** Dedicate time for documentation updates in future sprints.
-* **Test Coverage:** While progress was made, we fell short of the 80% coverage goal. **Action:** Allocate more time for writing and reviewing tests in the next sprint.
+* **Time Managment** While progress was made, we fell short on time during the sprint. **Action:** Allocate more time to group mates and schedule more meetings.
+
 
