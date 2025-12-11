@@ -338,7 +338,7 @@ def get_history_endpoint(
 
 @app.delete("/history")
 def clear_history_endpoint(
-    user_id_header: Annotated[Union[str, None], Header(alias="user-id")] = None
+    user_id_header: Annotated[Union[str, None], Header(alias="user-id")] = None,
 ):
     if not db_manager or not db_manager.cursor:
         raise HTTPException(
