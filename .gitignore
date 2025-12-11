@@ -57,3 +57,4 @@ data/
 
 # Qdrant storage
 qdrant_data/
+.DS_Store
