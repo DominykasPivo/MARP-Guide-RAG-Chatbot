@@ -374,9 +374,9 @@ For detailed architecture documentation, see:
 
 ## **10\. Contributers**
 
-**DominykasPivo**:Project Owner, Backend Development, Documentation, Testing, CI/CD Pipeline.   
-**S3eedkabak**:Event-Driven architecture, Backend Development, Documentation, Multi-LLM Orchestration, Frontend Integration.
-**AtillaBenligil**:Frontend Integration, Authentication Integration, Documentation.
+**DominykasPivo**
+**S3eedkabak**
+**AtillaBenligil**
 
 ---
 
@@ -392,6 +392,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
+
 
 
 
