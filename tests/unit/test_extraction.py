@@ -432,7 +432,7 @@ class TestRealDocumentExtraction:
 
     def test_extract_multiple_marp_documents(self):
         """Test extraction from multiple MARP documents."""
-        data_dir = Path(__file__).parent.parent.parent / "data" / "documents" / "pdfs"
+        data_dir = Path(__file__).parent.parent / "pdfs"
         if not data_dir.exists():
             pytest.skip("MARP PDFs not available")
 

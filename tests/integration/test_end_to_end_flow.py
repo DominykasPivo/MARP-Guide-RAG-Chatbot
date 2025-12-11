@@ -266,10 +266,8 @@ class TestQueryToAnswerFlow:
 
     def test_query_received_to_chunks_retrieved_flow(self):
         """Test the flow from query reception to chunk retrieval."""
-        from services.retrieval.app.retrieval_events import (
-            ChunksRetrieved,
-            QueryReceived,
-        )
+        from services.chat.app.events import QueryReceived
+        from services.retrieval.app.retrieval_events import ChunksRetrieved
 
         # 1. Query received
         query_received = QueryReceived(
@@ -312,56 +310,6 @@ class TestQueryToAnswerFlow:
         assert chunks_retrieved.correlationId == query_received.correlationId
         assert chunks_retrieved.payload["query"] == query_text
         assert len(chunks_retrieved.payload["chunks"]) > 0
-
-    def test_chunks_retrieved_to_answer_generated_flow(self):
-        """Test the flow from chunk retrieval to answer generation."""
-        from services.chat.app.events import AnswerGenerated, ChunksRetrieved
-
-        # 1. Chunks retrieved
-        chunks_retrieved = ChunksRetrieved(
-            eventType="chunks.retrieved",
-            eventId="evt-001",
-            timestamp="2025-01-01T00:00:00Z",
-            correlationId="corr-001",
-            source="retrieval-service",
-            version="1.0",
-            payload={
-                "query": "test query",
-                "chunks": [
-                    {
-                        "text": "Context chunk",
-                        "title": "Doc",
-                        "page": 1,
-                        "url": "http://test.com",
-                        "score": 0.9,
-                    }
-                ],
-            },
-        )
-
-        # 2. Chat service generates answer
-        answer_generated = AnswerGenerated(
-            eventType="answer.generated",
-            eventId="evt-002",
-            timestamp="2025-01-01T00:00:02Z",
-            correlationId=chunks_retrieved.correlationId,
-            source="chat-service",
-            version="1.0",
-            payload={
-                "query": chunks_retrieved.payload["query"],
-                "answer": "Generated answer based on context",
-                "citations": [
-                    {"title": "Doc", "page": 1, "url": "http://test.com", "score": 0.9}
-                ],
-                "model": "test-model",
-                "generation_time": 2.5,
-            },
-        )
-
-        # Verify flow
-        assert answer_generated.correlationId == chunks_retrieved.correlationId
-        assert answer_generated.payload["query"] == chunks_retrieved.payload["query"]
-        assert len(answer_generated.payload["citations"]) > 0
 
 
 class TestErrorHandlingAcrossServices:

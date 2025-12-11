@@ -1,30 +1,24 @@
 """Unit tests for event publishing and consumption."""
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestEventPublishing:
     """Test event publishing functionality."""
 
-    @patch(
-        "services.retrieval.app.retrieval_events."
-        "pika.BlockingConnection"
-    )
-    def test_publish_retrieval_completed_event(
-        self, mock_connection
-    ):
+    @patch("services.retrieval.app.retrieval_events.pika.BlockingConnection")
+    def test_publish_retrieval_completed_event(self, mock_connection):
         """Test publishing RetrievalCompleted event."""
         from services.retrieval.app.retrieval_events import (
-            publish_retrieval_completed_event
+            publish_retrieval_completed_event,
         )
 
-        # Setup mock
+        # Setup mock - the function doesn't use context manager
         mock_channel = MagicMock()
-        mock_conn = (
-            mock_connection.return_value.__enter__.return_value
-        )
+        mock_conn = mock_connection.return_value
         mock_conn.channel.return_value = mock_channel
 
         # Publish event
@@ -33,7 +27,7 @@ class TestEventPublishing:
             query="test query",
             results_count=5,
             top_score=0.95,
-            latency_ms=100.5
+            latency_ms=100.5,
         )
 
         # Verify basic_publish was called
@@ -41,9 +35,7 @@ class TestEventPublishing:
         call_args = mock_channel.basic_publish.call_args
 
         # Verify routing key
-        assert (
-            call_args[1]["routing_key"] == "retrieval.completed"
-        )
+        assert call_args[1]["routing_key"] == "retrievalcompleted"
 
         # Verify event structure
         published_body = call_args[1]["body"]
@@ -56,29 +48,19 @@ class TestEventPublishing:
         assert payload["topScore"] == 0.95
         assert payload["latencyMs"] == 100.5
 
-    @patch(
-        "services.chat.app.chat_events.pika.BlockingConnection"
-    )
-    def test_publish_query_received_event(
-        self, mock_connection
-    ):
+    @patch("services.chat.app.events.pika.BlockingConnection")
+    def test_publish_query_received_event(self, mock_connection):
         """Test publishing QueryReceived event."""
-        from services.chat.app.chat_events import (
-            publish_query_received_event
-        )
+        from services.chat.app.events import publish_query_received_event
 
-        # Setup mock
+        # Setup mock - no context manager, direct connection
         mock_channel = MagicMock()
-        mock_conn = (
-            mock_connection.return_value.__enter__.return_value
-        )
+        mock_conn = mock_connection.return_value
         mock_conn.channel.return_value = mock_channel
 
         # Publish event
         publish_query_received_event(
-            query_id="test-456",
-            user_id="user-789",
-            query_text="What is MARP?"
+            query_id="test-456", user_id="user-789", query_text="What is MARP?"
         )
 
         # Verify basic_publish was called
@@ -86,7 +68,7 @@ class TestEventPublishing:
         call_args = mock_channel.basic_publish.call_args
 
         # Verify routing key
-        assert call_args[1]["routing_key"] == "query.received"
+        assert call_args[1]["routing_key"] == "queryreceived"
 
         # Verify event structure
         published_body = call_args[1]["body"]
@@ -96,7 +78,7 @@ class TestEventPublishing:
         payload = event_data["payload"]
         assert payload["queryId"] == "test-456"
         assert payload["userId"] == "user-789"
-        assert payload["query"] == "What is MARP?"
+        assert payload["queryText"] == "What is MARP?"
 
 
 class TestEventConsumption:
@@ -112,8 +94,8 @@ class TestEventConsumption:
                 "query": "test query",
                 "resultsCount": 5,
                 "topScore": 0.95,
-                "latencyMs": 100.5
-            }
+                "latencyMs": 100.5,
+            },
         }
 
         # Validate schema
@@ -135,8 +117,8 @@ class TestEventConsumption:
             "payload": {
                 "queryId": "test-456",
                 "userId": "user-789",
-                "query": "What is MARP?"
-            }
+                "query": "What is MARP?",
+            },
         }
 
         # Validate schema

@@ -141,67 +141,59 @@ graph LR
 
 ## **5\. Testing & Quality Assurance**
 
-[![CI Status](https://github.com/DomasB123/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/DomasB123/MARP-Guide-RAG-Chatbot/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/DomasB123/MARP-Guide-RAG-Chatbot/branch/main/graph/badge.svg)](https://codecov.io/gh/DomasB123/MARP-Guide-RAG-Chatbot)
+### **Test Coverage**
 
-### **Test Suite**
+The project maintains **66% service coverage** with 289 automated tests across unit and integration levels. Core business logic (RAG, citations, chunking, retrieval) achieves 85-100% coverage. Event-driven components (RabbitMQ consumers, async workflows) are validated through integration tests.
 
-The project includes comprehensive test coverage with **100+ test cases**:
-
-- **Unit Tests** (`tests/unit/`): Test individual components in isolation
-  - **Chat Service:** Event handling, citation formatting, context building
-  - **Retrieval Service:** Vector search, RabbitMQ integration, error handling
-  - **Ingestion Service:** Document discovery, storage operations, thread safety
-  - **Indexing Service:** Semantic chunking, event processing
-  - **Event System:** Event creation, correlation IDs, metadata preservation
-  
-- **Integration Tests** (`tests/integration/`): Test service interactions
-  - End-to-end ingestion flow with document processing
-  - Indexing pipeline with vector database operations
-  - Search API with real queries
-  - Event-driven communication patterns
-  - Concurrent access and error scenarios
-
-**Note:** The Extraction Service currently has limited test coverage and is a candidate for future test expansion.
-
-### **Running Tests**
-
-**Run all tests:**
 ```bash
-pytest
+# Run all tests with coverage
+pytest --cov=services --cov-report=term
+
+# Run specific test suites
+pytest tests/unit/          # Unit tests
+pytest tests/integration/   # Integration tests
 ```
 
-**Run with coverage:**
-```bash
-pytest --cov=services --cov-report=html --cov-report=term
-```
-
-**Run specific test categories:**
-```bash
-# Unit tests only
-pytest tests/unit/
-
-# Integration tests only
-pytest tests/integration/
-
-# Specific service tests
-pytest tests/unit/test_chat_service.py
-```
-
-**For detailed testing documentation, see [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md)**
+**Documentation:** See [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) for comprehensive testing strategy.
 
 ### **CI/CD Pipeline**
 
-The project uses GitHub Actions for continuous integration:
+Automated GitHub Actions workflow provides continuous integration across Python 3.10-3.12:
+- **Testing:** Full test suite with coverage reporting to Codecov
+- **Docker:** Multi-service container builds with caching
+- **Quality:** Linting and security scanning
 
-**Workflow Jobs:**
-1. **Python Tests** - Runs full test suite across Python 3.10, 3.11, 3.12 on ubuntu-22.04
-2. **Docker Build** - Matrix build strategy for all 5 microservices
-3. **Code Coverage** - Uploads coverage reports to Codecov
+**Configuration:** See `.github/workflows/ci.yml` for pipeline details.
 
-**Configuration:** See `.github/workflows/ci.yml` and `docs/CI_CD_CONFIG.md` for details.
 
----
+## **CI/CD Pipeline Details**
+
+This project uses a robust CI/CD pipeline powered by GitHub Actions to ensure code quality, reliability, and fast feedback for every change:
+
+- **Automated Testing:** All pull requests and pushes to main trigger the full test suite (unit and integration) across Python 3.10–3.12. Coverage is reported to Codecov for visibility.
+- **Linting & Security:** Code is checked with flake8 and security scanning tools to enforce best practices and catch vulnerabilities early.
+- **Docker Builds:** Each microservice is built as a Docker image to validate containerization and enable seamless deployment.
+- **Multi-Service Orchestration:** Docker Compose is used to spin up the full stack for integration tests, ensuring services work together as expected.
+- **Quality Gates:** Builds fail if tests, linting, or security checks do not pass, preventing regressions from reaching production.
+- **Artifacts & Caching:** Build artifacts and Docker layers are cached to speed up subsequent runs.
+- **Extensible Workflow:** The pipeline is easily extendable for deployment to cloud platforms or additional quality checks.
+
+**Pipeline File:** See `.github/workflows/ci.yml` for the full workflow definition and customization options.
+
+**Best Practices:**
+- Keep tests and linting up to date with code changes.
+- Use feature branches and pull requests to trigger the pipeline before merging.
+- Review Codecov and CI status checks for every PR.
+
+For more details, see `docs/CI_CD_CONFIG.md`, which includes:
+
+- Overview of the CI/CD pipeline structure and workflow
+- Step-by-step explanation of each stage (test, lint, build, security scan, Docker build, deploy)
+- Environment variables and secrets used in the pipeline
+- How to customize or extend the workflow for your needs
+- Troubleshooting tips for common CI/CD issues
+- Links to workflow files (e.g., `.github/workflows/ci.yml`)
+- Best practices for maintaining CI/CD quality gates
 
 ## **6\. Configuration**
 
@@ -221,9 +213,6 @@ Or use the automated setup scripts:
 ```bash
 # Linux/Mac
 ./scripts/setup.sh
-
-# Windows PowerShell
-.\scripts\setup.ps1
 ```
 
 ### **Key Configuration Areas**
@@ -240,19 +229,9 @@ Or use the automated setup scripts:
 - **Quick Start:** See `docs/QUICK_CONFIG.md` for common configurations
 - **Complete Reference:** See `docs/ENVIRONMENT_CONFIG.md` for all 60+ variables
 - **Package Versions:** See `docs/PACKAGE_VERSIONS.md` for dependency details
-- **CI/CD Setup:** See `docs/CI_CD_CONFIG.md` for pipeline configuration
 
----
-
-## **7\. Deployment & Ports**
 
 All services communicate via RabbitMQ events and REST APIs. The Chat service serves the frontend on port 8004.
-
-| Service | Host Port | Access |
-| :---- | :---- | :---- |
-| Chat (Frontend) | 8004 | **Public:** Web UI at http://localhost:8004 |
-| Ingestion | 8001 | **Internal:** Document upload endpoint |
-| Extraction | 8002 | **Internal:** Event consumer |
 | Indexing | 8003 | **Internal:** Event consumer |
 | Retrieval | 8005 | **Internal:** Vector search API |
 | RabbitMQ | 5672 | **Internal:** Message broker |
@@ -281,11 +260,11 @@ All services communicate via RabbitMQ events and REST APIs. The Chat service ser
    ```bash
    # Linux/Mac
    ./scripts/setup.sh
-   
+
    # Windows PowerShell
    .\scripts\setup.ps1
    ```
-   
+
    Or manually:
    ```bash
    cp .env.example .env
@@ -382,6 +361,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **OpenRouter:** Multi-LLM API access
 - **Qdrant:** High-performance vector database
 - **Sentence Transformers:** State-of-the-art embedding models |
-
-
-

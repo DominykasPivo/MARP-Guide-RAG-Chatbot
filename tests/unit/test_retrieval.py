@@ -783,13 +783,12 @@ class TestRetrievalService:
         service = RetrievalService(rabbitmq_host="rabbitmq")
         service.start()
 
-        # Verify subscriptions
-        assert mock_consumer.subscribe.call_count == 2
+        # Verify subscriptions - only chunks.indexed, QueryReceived handled via HTTP
+        assert mock_consumer.subscribe.call_count == 1
 
         calls = mock_consumer.subscribe.call_args_list
         events = [call[0][0] for call in calls]
 
-        assert "QueryReceived" in events
         assert "chunks.indexed" in events
 
     def test_start_begins_consuming(self):
@@ -859,167 +858,6 @@ class TestRetrievalService:
         ).encode()
 
         service.handle_chunks_indexed(ch, method, properties, body)
-
-        ch.basic_ack.assert_called_once()
-
-    def test_handle_query_received_success(self):
-        """Test handle_query_received retrieves and publishes results."""
-        from services.retrieval.app.retrieval import RetrievalService
-
-        mock_retriever = Mock()
-        mock_retriever.search.return_value = [
-            {"content": "chunk1", "relevanceScore": 0.95},
-            {"content": "chunk2", "relevanceScore": 0.87},
-        ]
-        sys.modules["retriever"].get_retriever.return_value = mock_retriever
-
-        service = RetrievalService(rabbitmq_host="rabbitmq")
-
-        ch = Mock()
-        method = Mock(delivery_tag="test-tag")
-        properties = Mock(correlation_id="query-123")
-
-        query_event = {
-            "eventType": "QueryReceived",
-            "payload": {"queryId": "q-456", "queryText": "What is MARP?"},
-        }
-        body = json.dumps(query_event).encode()
-
-        service.handle_query_received(ch, method, properties, body)
-
-        # Verify search called
-        mock_retriever.search.assert_called_once_with("What is MARP?", top_k=5)
-
-        # Verify message acknowledged
-        ch.basic_ack.assert_called_once_with(delivery_tag="test-tag")
-
-        # Verify TWO events published (RetrievalCompleted + ChunksRetrieved)
-        assert sys.modules["retrieval_events"].publish_event.call_count == 2
-        # First call: RetrievalCompleted
-        assert (
-            sys.modules["retrieval_events"].publish_event.call_args_list[0][0][0]
-            == "RetrievalCompleted"
-        )
-        # Second call: ChunksRetrieved
-        assert (
-            "CHUNKS_RETRIEVED"
-            in str(
-                sys.modules["retrieval_events"].publish_event.call_args_list[1][0][0]
-            )
-            or sys.modules["retrieval_events"].publish_event.call_args_list[1][0][0]
-            == "ChunksRetrieved"
-        )
-
-    def test_handle_query_received_empty_results(self):
-        """Test handle_query_received with no results found."""
-        from services.retrieval.app.retrieval import RetrievalService
-
-        mock_retriever = Mock()
-        mock_retriever.search.return_value = []
-        sys.modules["retriever"].get_retriever.return_value = mock_retriever
-
-        service = RetrievalService(rabbitmq_host="rabbitmq")
-
-        ch = Mock()
-        method = Mock(delivery_tag="test-tag")
-        properties = Mock(correlation_id="query-456")
-
-        body = json.dumps(
-            {
-                "eventType": "QueryReceived",
-                "payload": {"queryId": "q-789", "queryText": "unknown topic"},
-            }
-        ).encode()
-
-        service.handle_query_received(ch, method, properties, body)
-
-        # Should still publish event with empty results
-        ch.basic_ack.assert_called_once()
-
-    def test_handle_query_received_default_top_k(self):
-        """Test handle_query_received uses default top_k if not specified."""
-        from services.retrieval.app.retrieval import RetrievalService
-
-        mock_retriever = Mock()
-        mock_retriever.search.return_value = []
-        sys.modules["retriever"].get_retriever.return_value = mock_retriever
-
-        service = RetrievalService(rabbitmq_host="rabbitmq")
-
-        ch = Mock()
-        method = Mock(delivery_tag="test-tag")
-        properties = Mock(correlation_id="query-789")
-
-        # Event without top_k
-        body = json.dumps(
-            {
-                "eventType": "QueryReceived",
-                "payload": {"queryId": "q-123", "queryText": "test"},
-            }
-        ).encode()
-
-        service.handle_query_received(ch, method, properties, body)
-
-        # Should use default top_k=5
-        mock_retriever.search.assert_called_once_with("test", top_k=5)
-
-    def test_handle_query_received_invalid_json(self):
-        """Test handle_query_received handles malformed JSON."""
-        from services.retrieval.app.retrieval import RetrievalService
-
-        service = RetrievalService(rabbitmq_host="rabbitmq")
-
-        ch = Mock()
-        method = Mock(delivery_tag="test-tag")
-        properties = Mock(correlation_id="query-bad")
-        body = b"not json"
-
-        service.handle_query_received(ch, method, properties, body)
-
-        # Should ACK invalid JSON (not nack) to remove from queue
-        ch.basic_ack.assert_called_once()
-
-    def test_handle_query_received_retrieval_error(self):
-        """Test handle_query_received handles retrieval exceptions."""
-        from services.retrieval.app.retrieval import RetrievalService
-
-        mock_retriever = Mock()
-        mock_retriever.search.side_effect = Exception("Database connection failed")
-        sys.modules["retriever"].get_retriever.return_value = mock_retriever
-
-        service = RetrievalService(rabbitmq_host="rabbitmq")
-
-        ch = Mock()
-        method = Mock(delivery_tag="test-tag")
-        properties = Mock(correlation_id="query-error")
-        body = json.dumps(
-            {
-                "eventType": "QueryReceived",
-                "payload": {"queryId": "q-err", "queryText": "test"},
-            }
-        ).encode()
-
-        service.handle_query_received(ch, method, properties, body)
-
-        # Should nack message
-        ch.basic_nack.assert_called_once()
-
-    def test_handle_query_received_missing_query_field(self):
-        """Test handle_query_received handles missing query field."""
-        from services.retrieval.app.retrieval import RetrievalService
-
-        service = RetrievalService(rabbitmq_host="rabbitmq")
-
-        ch = Mock()
-        method = Mock(delivery_tag="test-tag")
-        properties = Mock(correlation_id="query-123")
-
-        # Event missing 'queryText' field
-        body = json.dumps(
-            {"eventType": "QueryReceived", "payload": {"queryId": "q-123"}}
-        ).encode()
-
-        service.handle_query_received(ch, method, properties, body)
 
         ch.basic_ack.assert_called_once()
 

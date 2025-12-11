@@ -2,14 +2,41 @@ import json
 import logging
 import os
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Dict, Optional
 
 import pika
 
 logger = logging.getLogger("retrieval.events")
 
 EXCHANGE_NAME = "document_events"
+
+
+@dataclass
+class QueryReceived:
+    """Event schema for QueryReceived."""
+
+    eventType: str
+    eventId: str
+    timestamp: str
+    correlationId: str
+    source: str
+    version: str
+    payload: Dict
+
+
+@dataclass
+class ChunksRetrieved:
+    """Event schema for ChunksRetrieved."""
+
+    eventType: str
+    eventId: str
+    timestamp: str
+    correlationId: str
+    source: str
+    version: str
+    payload: Dict
 
 
 def publish_retrieval_completed_event(
