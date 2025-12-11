@@ -242,7 +242,7 @@ jobs:
 
       - name: Start Docker Compose services
         run: |
-          docker compose -f docker-compose.e2e.yml up -d --no-pull
+          docker compose -f docker-compose.e2e.yml up -d --pull never
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
