@@ -17,7 +17,9 @@ def get_qdrant_client():
     return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 
-def store_chunks_in_qdrant(chunks, collection_name=QDRANT_COLLECTION, correlation_id=None):
+def store_chunks_in_qdrant(
+    chunks, collection_name=QDRANT_COLLECTION, correlation_id=None
+):
     """Store chunk embeddings, text, and metadata in a Qdrant collection."""
     client = get_qdrant_client()
 

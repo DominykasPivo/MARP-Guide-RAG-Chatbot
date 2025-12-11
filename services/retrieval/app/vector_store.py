@@ -21,7 +21,8 @@ class VectorStore:
             collections = self.client.get_collections().collections
             if not any(c.name == self.collection_name for c in collections):
                 logger.warning(
-                    f"Collection '{self.collection_name}' not found in Qdrant. Waiting for indexing."
+                    f"Collection '{self.collection_name}' not found in "
+                    f"Qdrant. Waiting for indexing."
                 )
             else:
                 logger.info(f"Connected to Qdrant collection '{self.collection_name}'")

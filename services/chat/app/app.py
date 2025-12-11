@@ -8,7 +8,11 @@ import httpx
 from consumers import start_consumer_thread
 from events import publish_query_received_event
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+    RedirectResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from llm_rag_helpers import generate_answers_parallel
 from models import ChatResponse, Chunk, Citation, LLMResponse
@@ -76,7 +80,8 @@ def filter_top_citations(
             c.page = max(0, c.page - 1)
 
     logger.info(
-        f"Filtering {len(citations)} citations (top_n={top_n}, min_citations={min_citations})"
+        f"Filtering {len(citations)} citations "
+        f"(top_n={top_n}, min_citations={min_citations})"
     )
     sorted_citations = sorted(citations, key=lambda c: c.score, reverse=True)
     num_to_return = max(min_citations, min(len(sorted_citations), top_n))
@@ -90,7 +95,8 @@ def filter_top_citations(
             seen.add(key)
     citation_info = [(c.title, c.page, c.score) for c in deduped]
     logger.info(
-        f"Returning {len(deduped)} citations after filtering and deduplication: {citation_info}"
+        f"Returning {len(deduped)} citations after filtering and "
+        f"deduplication: {citation_info}"
     )
     return deduped
 
@@ -114,9 +120,7 @@ async def get_chunks_via_http_async(query: str):
             logger.error(f"HTTP request failed: {response.status_code}")
             return []
     except Exception as e:
-        logger.error(
-            f"Error getting chunks via HTTP (async): {str(e)}", exc_info=True
-        )
+        logger.error(f"Error getting chunks via HTTP (async): {str(e)}", exc_info=True)
         return []
 
 
@@ -132,7 +136,7 @@ async def chat_ui():
     static_file = "/app/static/index.html"
     if os.path.exists(static_file):
         return FileResponse(static_file)
-    return {"message": "Chat UI not available. Access /chat endpoint directly."}
+    return {"message": "Chat UI not available. " "Access /chat endpoint directly."}
 
 
 @app.get("/health")
@@ -158,7 +162,9 @@ async def chat(request: Request, chat_request: ChatRequestModel):
             raise HTTPException(status_code=400, detail="Query is required")
 
         correlation_id = str(uuid.uuid4())
-        logger.info(f"Received chat request: '{query}' (correlation_id: {correlation_id})")
+        logger.info(
+            f"Received chat request: '{query}' " f"(correlation_id: {correlation_id})"
+        )
 
         models_to_use = (
             chat_request.selected_models if chat_request.selected_models else LLM_MODELS
@@ -183,7 +189,8 @@ async def chat(request: Request, chat_request: ChatRequestModel):
                 LLMResponse(
                     model=m.strip(),
                     answer=(
-                        "I couldn't find any relevant information to answer your question."
+                        "I couldn't find any relevant n\
+                        information to answer your question."
                     ),
                     citations=[],
                     generation_time=0.0,
@@ -196,9 +203,7 @@ async def chat(request: Request, chat_request: ChatRequestModel):
         chunks = [Chunk(**chunk) for chunk in chunks_data]
         logger.info(f"Processing {len(chunks)} chunks")
 
-        logger.info(
-            f"Generating answers from {len(models_to_use)} models in parallel"
-        )
+        logger.info(f"Generating answers from {len(models_to_use)} models in parallel")
         llm_responses = await generate_answers_parallel(
             query, chunks, api_key=OPENROUTER_API_KEY, models=models_to_use
         )

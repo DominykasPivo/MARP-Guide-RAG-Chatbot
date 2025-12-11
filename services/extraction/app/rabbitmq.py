@@ -57,7 +57,9 @@ class EventConsumer:
             logger.info(f"Connecting to RabbitMQ at {self.host}...")
             self.connection = pika.BlockingConnection(parameters)
             self.channel = self.connection.channel()
-            self.channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type="topic", durable=True)
+            self.channel.exchange_declare(
+                exchange=EXCHANGE_NAME, exchange_type="topic", durable=True
+            )
             logger.info("RabbitMQ connection established")
             return True
         except AMQPConnectionError as e:
@@ -74,7 +76,10 @@ class EventConsumer:
         """Publish event with retry."""
         if not correlation_id:
             correlation_id = str(uuid.uuid4())
-            logger.warning("Missing correlation ID; generated new one", extra={"correlation_id": correlation_id})
+            logger.warning(
+                "Missing correlation ID; generated new one",
+                extra={"correlation_id": correlation_id},
+            )
 
         for attempt in range(MAX_RETRIES):
             try:
@@ -82,8 +87,14 @@ class EventConsumer:
                     if not self._connect():
                         wait = self._calculate_retry_delay(attempt)
                         logger.warning(
-                            f"Connection unavailable (attempt {attempt + 1}/{MAX_RETRIES}); retrying in {wait:.2f}s",
-                            extra={"correlation_id": correlation_id, "attempt": attempt + 1, "wait_time": wait},
+                            f"Connection unavailable "
+                            f"(attempt {attempt + 1}/{MAX_RETRIES}); "
+                            f"retrying in {wait:.2f}s",
+                            extra={
+                                "correlation_id": correlation_id,
+                                "attempt": attempt + 1,
+                                "wait_time": wait,
+                            },
                         )
                         time.sleep(wait)
                         continue
@@ -123,7 +134,9 @@ class EventConsumer:
                 if attempt < MAX_RETRIES - 1:
                     wait = self._calculate_retry_delay(attempt)
                     logger.warning(
-                        f"Publish failed (attempt {attempt + 1}/{MAX_RETRIES}); retrying in {wait:.2f}s: {str(e)}",
+                        f"Publish failed "
+                        f"(attempt {attempt + 1}/{MAX_RETRIES}); "
+                        f"retrying in {wait:.2f}s: {str(e)}",
                         extra={
                             "correlation_id": correlation_id,
                             "event_type": event_type,
@@ -136,7 +149,11 @@ class EventConsumer:
                 else:
                     logger.error(
                         "Publish failed after max retries",
-                        extra={"correlation_id": correlation_id, "event_type": event_type, "error": str(e)},
+                        extra={
+                            "correlation_id": correlation_id,
+                            "event_type": event_type,
+                            "error": str(e),
+                        },
                     )
         return False
 
@@ -148,7 +165,9 @@ class EventConsumer:
                     if not self._connect():
                         wait = self._calculate_retry_delay(attempt)
                         logger.warning(
-                            f"Connection unavailable (attempt {attempt + 1}/{MAX_RETRIES}); retrying in {wait:.2f}s"
+                            f"Connection unavailable "
+                            f"(attempt {attempt + 1}/{MAX_RETRIES}); "
+                            f"retrying in {wait:.2f}s"
                         )
                         time.sleep(wait)
                         continue
@@ -158,11 +177,15 @@ class EventConsumer:
                     raise RuntimeError("Channel not initialized")
 
                 self.channel.queue_declare(queue=self.queue_name, durable=True)
-                self.channel.queue_bind(exchange=EXCHANGE_NAME, queue=self.queue_name, routing_key=event_type)
+                self.channel.queue_bind(
+                    exchange=EXCHANGE_NAME,
+                    queue=self.queue_name,
+                    routing_key=event_type,
+                )
                 self.channel.basic_consume(
                     queue=self.queue_name,
-                    on_message_callback=lambda ch, method, props, body: self._handle_message(
-                        callback, ch, method, props, body
+                    on_message_callback=lambda ch, method, props, body: (
+                        self._handle_message(callback, ch, method, props, body)
                     ),
                     auto_ack=False,
                 )
@@ -173,7 +196,9 @@ class EventConsumer:
                 if attempt < MAX_RETRIES - 1:
                     wait = self._calculate_retry_delay(attempt)
                     logger.warning(
-                        f"Subscription failed (attempt {attempt + 1}/{MAX_RETRIES}); retrying in {wait:.2f}s: {str(e)}"
+                        f"Subscription failed "
+                        f"(attempt {attempt + 1}/{MAX_RETRIES}); "
+                        f"retrying in {wait:.2f}s: {str(e)}"
                     )
                     time.sleep(wait)
                 else:
@@ -193,17 +218,26 @@ class EventConsumer:
                 elif props.headers and "correlation_id" in props.headers:
                     correlation_id = props.headers["correlation_id"]
 
-            if not correlation_id and isinstance(message, dict) and "correlation_id" in message:
+            if (
+                not correlation_id
+                and isinstance(message, dict)
+                and "correlation_id" in message
+            ):
                 correlation_id = message["correlation_id"]
 
             if not correlation_id:
                 correlation_id = str(uuid.uuid4())
-                logger.warning("Missing correlation ID; generated new one", extra={"correlation_id": correlation_id})
+                logger.warning(
+                    "Missing correlation ID; generated new one",
+                    extra={"correlation_id": correlation_id},
+                )
 
             try:
                 callback(ch, method, props, body)
                 ch.basic_ack(delivery_tag=method.delivery_tag)
-                logger.debug("Message acknowledged", extra={"correlation_id": correlation_id})
+                logger.debug(
+                    "Message acknowledged", extra={"correlation_id": correlation_id}
+                )
             except Exception as e:
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
                 logger.error(
@@ -212,7 +246,11 @@ class EventConsumer:
                 )
 
             if not props:
-                props = pika.BasicProperties(correlation_id=correlation_id, content_type="application/json", delivery_mode=2)
+                props = pika.BasicProperties(
+                    correlation_id=correlation_id,
+                    content_type="application/json",
+                    delivery_mode=2,
+                )
             elif not props.correlation_id:
                 props = pika.BasicProperties(
                     correlation_id=correlation_id,

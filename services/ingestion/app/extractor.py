@@ -15,12 +15,17 @@ class PDFLinkExtractor:
     def __init__(self, base_url: str):
         self.base_url = base_url
 
-    def get_pdf_urls(self, html_content: str, correlation_id: Optional[str] = None) -> List[str]:
+    def get_pdf_urls(
+        self, html_content: str, correlation_id: Optional[str] = None
+    ) -> List[str]:
         """Extract PDF URLs from HTML content."""
         soup = BeautifulSoup(html_content, "lxml")
         pdf_urls: List[str] = []
 
-        logger.info("Scanning HTML content for PDF links.", extra={"correlation_id": correlation_id})
+        logger.info(
+            "Scanning HTML content for PDF links.",
+            extra={"correlation_id": correlation_id},
+        )
 
         for link in soup.find_all("a"):
             href = link.get("href")
@@ -30,8 +35,13 @@ class PDFLinkExtractor:
             url: str = urljoin(self.base_url, href)
 
             if url.lower().endswith(".pdf"):
-                logger.info(f"PDF link found: {url}", extra={"correlation_id": correlation_id})
+                logger.info(
+                    f"PDF link found: {url}", extra={"correlation_id": correlation_id}
+                )
                 pdf_urls.append(url)
 
-        logger.info(f"PDF links found: {len(pdf_urls)}", extra={"correlation_id": correlation_id})
+        logger.info(
+            f"PDF links found: {len(pdf_urls)}",
+            extra={"correlation_id": correlation_id},
+        )
         return pdf_urls

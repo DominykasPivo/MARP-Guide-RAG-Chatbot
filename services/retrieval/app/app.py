@@ -320,11 +320,13 @@ def metrics():
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "indexing_metrics": {
                     "total_chunks_indexed": consumer_metrics["chunks_indexed_total"],
-                    "total_documents_indexed": consumer_metrics["documents_indexed_total"],
+                    "total_documents_indexed": consumer_metrics[
+                        "documents_indexed_total"
+                    ],
                     "last_indexed_at": consumer_metrics["last_indexed_timestamp"],
                 },
             },
-            status_code=200
+            status_code=200,
         )
     except Exception as e:
         logger.error(f"Metrics endpoint failed: {e}", exc_info=True)

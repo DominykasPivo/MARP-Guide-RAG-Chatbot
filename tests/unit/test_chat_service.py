@@ -107,7 +107,6 @@ class TestChatServiceEvents:
         assert len(event.payload["retrievedChunks"]) == 1
 
 
-
 class TestCitationExtraction:
     """Test citation extraction from responses."""
 

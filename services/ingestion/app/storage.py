@@ -52,7 +52,9 @@ class DocumentStorage:
             with open(self.index_path, "w") as f:
                 json.dump(self.index, f, indent=2)
 
-    def store_document(self, document_id: str, pdf_content: bytes, metadata: Dict) -> bool:
+    def store_document(
+        self, document_id: str, pdf_content: bytes, metadata: Dict
+    ) -> bool:
         """Store PDF and update index with metadata."""
         with self._lock:
             try:
@@ -104,7 +106,9 @@ class DocumentStorage:
         """List all documents with their metadata from the index."""
         with self._lock:
             self._load_index()
-            return [{"document_id": doc_id, **entry} for doc_id, entry in self.index.items()]
+            return [
+                {"document_id": doc_id, **entry} for doc_id, entry in self.index.items()
+            ]
 
     def delete_document(self, document_id: str) -> bool:
         """Delete a document's PDF and index entry."""

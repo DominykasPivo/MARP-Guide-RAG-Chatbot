@@ -266,8 +266,10 @@ class TestQueryToAnswerFlow:
 
     def test_query_received_to_chunks_retrieved_flow(self):
         """Test the flow from query reception to chunk retrieval."""
-        from services.chat.app.events import QueryReceived
-        from services.chat.app.events import ChunksRetrieved  # Adjusted import to source of schema
+        from services.chat.app.events import (  # Adjusted import to source of schema
+            ChunksRetrieved,
+            QueryReceived,
+        )
 
         # 1. Query received
         query_received = QueryReceived(
@@ -310,6 +312,7 @@ class TestQueryToAnswerFlow:
         assert chunks_retrieved.correlationId == query_received.correlationId
         assert chunks_retrieved.payload["query"] == query_text
         assert len(chunks_retrieved.payload["chunks"]) > 0
+
 
 class TestErrorHandlingAcrossServices:
     """Test error handling and recovery mechanisms."""

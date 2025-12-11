@@ -81,7 +81,8 @@ class EventConsumer:
                 if attempt < MAX_RETRIES - 1:
                     delay = self._calculate_retry_delay(attempt)
                     logger.warning(
-                        f"Retrying connection in {delay:.2f}s (attempt {attempt + 1}/{MAX_RETRIES})"
+                        f"Retrying connection in {delay:.2f}s "
+                        f"(attempt {attempt + 1}/{MAX_RETRIES})"
                     )
                     time.sleep(delay)
                     continue
@@ -108,11 +109,13 @@ class EventConsumer:
                     )
 
                     logger.info(
-                        f"Subscribed to '{routing_key}' events on exchange '{EXCHANGE_NAME}'"
+                        f"Subscribed to '{routing_key}' events on "
+                        f"exchange '{EXCHANGE_NAME}'"
                     )
 
                 logger.info(
-                    f"Starting to consume messages for {len(self.subscriptions)} event types"
+                    f"Starting to consume messages for "
+                    f"{len(self.subscriptions)} event types"
                 )
                 self.channel.start_consuming()
 

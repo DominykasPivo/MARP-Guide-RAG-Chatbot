@@ -108,7 +108,9 @@ class ExtractionService:
         from events import EventTypes
 
         logger.info("Starting extraction service")
-        if self.consumer.subscribe(EventTypes.DOCUMENT_DISCOVERED.value, self._handle_event):
+        if self.consumer.subscribe(
+            EventTypes.DOCUMENT_DISCOVERED.value, self._handle_event
+        ):
             self.consumer.start_consuming()
         else:
             raise RuntimeError("Event subscription failed")
@@ -116,13 +118,18 @@ class ExtractionService:
     def _handle_document_wrapper(self, ch, method, properties, body):
         """Ensure correlation ID and delegate to handler."""
         correlation_id = (
-            properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
+            properties.correlation_id
+            if properties and properties.correlation_id
+            else str(uuid.uuid4())
         )
 
         if not properties or not properties.correlation_id:
             logger.warning(
                 "Missing correlation ID in message; generated new one",
-                extra={"correlation_id": correlation_id, "routing_key": (method.routing_key if method else None)},
+                extra={
+                    "correlation_id": correlation_id,
+                    "routing_key": (method.routing_key if method else None),
+                },
             )
             properties = pika.BasicProperties(
                 correlation_id=correlation_id,
@@ -137,7 +144,9 @@ class ExtractionService:
 
         """Handle document.discovered event."""
         correlation_id = (
-            properties.correlation_id if properties and properties.correlation_id else str(uuid.uuid4())
+            properties.correlation_id
+            if properties and properties.correlation_id
+            else str(uuid.uuid4())
         )
         logger.info("Handling document", extra={"correlation_id": correlation_id})
 
@@ -171,7 +180,9 @@ class ExtractionService:
 
             start_time = time.time()
             file_path = discovered.payload["filePath"]
-            result = self.extractor.extract_document(file_path, discovered.payload.get("sourceUrl"))
+            result = self.extractor.extract_document(
+                file_path, discovered.payload.get("sourceUrl")
+            )
             extracted_file_time = datetime.now(timezone.utc).isoformat()
             processing_time = (time.time() - start_time) * 1000
 
@@ -197,7 +208,9 @@ class ExtractionService:
                     "fileType": fileType,
                     "metadata": {
                         "title": metadata.get("title", "Unknown Title"),
-                        "sourceUrl": discovered.payload.get("sourceUrl", "Unknown Source"),
+                        "sourceUrl": discovered.payload.get(
+                            "sourceUrl", "Unknown Source"
+                        ),
                         "pageCount": page_count,
                     },
                     "extractedAt": extracted_file_time,
@@ -224,15 +237,24 @@ class ExtractionService:
             else:
                 logger.error(
                     "Publish failed",
-                    extra={"document_id": discovered.document_id, "error": "RabbitMQ publish failed"},
+                    extra={
+                        "document_id": discovered.document_id,
+                        "error": "RabbitMQ publish failed",
+                    },
                 )
 
         except Exception as e:
             logger.error(
                 "Document processing failed",
                 extra={
-                    "correlation_id": (correlation_id if "correlation_id" in locals() else None),
-                    "document_id": (event_data.get("document_id") if "event_data" in locals() else None),
+                    "correlation_id": (
+                        correlation_id if "correlation_id" in locals() else None
+                    ),
+                    "document_id": (
+                        event_data.get("document_id")
+                        if "event_data" in locals()
+                        else None
+                    ),
                     "error": str(e),
                 },
                 exc_info=True,

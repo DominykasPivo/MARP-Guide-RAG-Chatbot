@@ -16,6 +16,7 @@ EXCHANGE_NAME = "document_events"
 @dataclass
 class QueryReceived:
     """Event schema for QueryReceived."""
+
     eventType: str
     eventId: str
     timestamp: str
@@ -23,6 +24,7 @@ class QueryReceived:
     source: str
     version: str
     payload: Dict
+
 
 def publish_retrieval_completed_event(
     query_id: str,
@@ -73,6 +75,4 @@ def publish_retrieval_completed_event(
         connection.close()
 
     except Exception as e:
-        logger.error(
-            f"Failed to publish RetrievalCompleted event: {e}", exc_info=True
-        )
+        logger.error(f"Failed to publish RetrievalCompleted event: {e}", exc_info=True)

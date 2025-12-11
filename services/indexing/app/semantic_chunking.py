@@ -52,7 +52,9 @@ def chunk_document(text: str, metadata: dict, max_tokens: Optional[int] = None) 
 
     for para in paragraphs:
         para_tokens = len(enc.encode(para))
-        subchunks = split_by_tokens(para, max_tokens) if para_tokens > max_tokens else [para]
+        subchunks = (
+            split_by_tokens(para, max_tokens) if para_tokens > max_tokens else [para]
+        )
         for subchunk in subchunks:
             len(enc.encode(subchunk))
             if current_chunk:

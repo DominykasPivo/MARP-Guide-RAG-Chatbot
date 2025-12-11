@@ -30,14 +30,18 @@ service = ExtractionService(rabbitmq_host)
 async def home():
     """Root endpoint."""
     logger.info("Home endpoint accessed")
-    return JSONResponse(content={"message": "Extraction Service is running"}, status_code=200)
+    return JSONResponse(
+        content={"message": "Extraction Service is running"}, status_code=200
+    )
 
 
 @app.get("/health")
 async def health():
     """Health check."""
     rabbitmq_status = (
-        "healthy" if service.consumer.connection and not service.consumer.connection.is_closed else "unhealthy"
+        "healthy"
+        if service.consumer.connection and not service.consumer.connection.is_closed
+        else "unhealthy"
     )
     status = {
         "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
@@ -45,7 +49,9 @@ async def health():
         "service": "extraction",
         "dependencies": {"rabbitmq": rabbitmq_status},
     }
-    return JSONResponse(content=status, status_code=200 if rabbitmq_status == "healthy" else 503)
+    return JSONResponse(
+        content=status, status_code=200 if rabbitmq_status == "healthy" else 503
+    )
 
 
 @app.post("/extract")

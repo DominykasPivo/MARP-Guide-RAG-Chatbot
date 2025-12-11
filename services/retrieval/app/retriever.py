@@ -62,7 +62,8 @@ class Retriever:
             qdrant_limit = max(top_k * 3, 15)
 
             logger.info(
-                f"Searching Qdrant collection '{self.collection_name}' for top {qdrant_limit} results"
+                f"Searching Qdrant collection '{self.collection_name}' "
+                f"for top {qdrant_limit} results"
             )
 
             search_results = self.client.search(
@@ -106,12 +107,16 @@ class Retriever:
                 )
 
             logger.info(
-                f"Retrieved {len(chunks)} unique chunks (requested {top_k}, from {len(search_results)} raw results)"
+                f"Retrieved {len(chunks)} unique chunks "
+                f"(requested {top_k}, from {len(search_results)} "
+                f"raw results)"
             )
 
             if len(chunks) < top_k:
                 logger.warning(
-                    f"Only retrieved {len(chunks)} chunks (requested {top_k}). Data may be limited or deduplication aggressive."
+                    f"Only retrieved {len(chunks)} chunks "
+                    f"(requested {top_k}). Data may be limited or "
+                    f"deduplication aggressive."
                 )
 
             return chunks
@@ -128,7 +133,8 @@ class Retriever:
                 )
             except Exception as e1:
                 logger.warning(
-                    f"Primary model load failed: {e1}. Retrying with safe settings..."
+                    f"Primary model load failed: {e1}. "
+                    f"Retrying with safe settings..."
                 )
                 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
                 os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
@@ -139,14 +145,17 @@ class Retriever:
                 )
             logger.info("Embedding model loaded on CPU")
 
-            logger.info(f"Connecting to Qdrant at {self.qdrant_host}:{self.qdrant_port}")
+            logger.info(
+                f"Connecting to Qdrant at {self.qdrant_host}:{self.qdrant_port}"
+            )
             self.client = QdrantClient(host=self.qdrant_host, port=self.qdrant_port)
 
             try:
                 collections = self.client.get_collections().collections
                 if not any(c.name == self.collection_name for c in collections):
                     logger.warning(
-                        f"Collection '{self.collection_name}' not found in Qdrant. Waiting for indexing."
+                        f"Collection '{self.collection_name}' not found "
+                        f"in Qdrant. Waiting for indexing."
                     )
                 else:
                     logger.info(

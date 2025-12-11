@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import httpx
 from models import Chunk, Citation, LLMResponse
@@ -16,10 +16,13 @@ OPENROUTER_API_URL = os.getenv(
     "OPENROUTER_API_URL", "https://openrouter.ai/api/v1/chat/completions"
 )
 
+logger.info("Started consuming ChunksIndexed events (metrics and logging)")
+
 RAG_PROMPT_TEMPLATE = """
 You are an expert AI assistant for the MARP-Guide.
 Your task is to answer the user's question ONLY based on the provided CONTEXT.
-If the answer is not found in the context, clearly state that you cannot answer based on the information provided.
+If the answer is not found in the context, n\
+clearly state that you cannot answer based on the information provided.
 Do not use any external knowledge.
 
 CONTEXT:
@@ -73,16 +76,19 @@ async def generate_answer_with_citations_async(
                     if attempt < max_retries - 1:
                         wait_time = min(2**attempt, 30)
                         logger.info(
-                            f"Rate limited for {model}. Waiting {wait_time}s before retry ({attempt + 1}/{max_retries})"
+                            f"Rate limited for {model}. Waiting {wait_time}s "
+                            f"before retry ({attempt + 1}/{max_retries})"
                         )
                         await asyncio.sleep(wait_time)
                         continue
                     else:
                         logger.error(
-                            f"Rate limit exceeded for {model} after {max_retries} attempts"
+                            f"Rate limit exceeded for {model} after "
+                            f"{max_retries} attempts"
                         )
                         answer = (
-                            "[LLM Error] Rate limit exceeded. Please wait and try again."
+                            "[LLM Error] Rate limit exceeded. "
+                            "Please wait and try again."
                         )
                         break
 
@@ -106,13 +112,14 @@ async def generate_answer_with_citations_async(
                 if attempt < max_retries - 1:
                     wait_time = min(2**attempt, 30)
                     logger.info(
-                        f"Rate limited for {model}. Waiting {wait_time}s before retry ({attempt + 1}/{max_retries})"
+                        f"Rate limited for {model}. Waiting {wait_time}s "
+                        f"before retry ({attempt + 1}/{max_retries})"
                     )
                     await asyncio.sleep(wait_time)
                     continue
                 else:
                     answer = (
-                        "[LLM Error] Rate limit exceeded. Please wait and try again."
+                        "[LLM Error] Rate limit exceeded. " "Please wait and try again."
                     )
                     break
             else:
@@ -126,6 +133,10 @@ async def generate_answer_with_citations_async(
 
     generation_time = time.time() - start_time
     citations = extract_citations(chunks)
+    logger.info(
+        f"Generating answer for model: {model} "
+        f"(context length: {len(rag_prompt)} chars)"
+    )
     return answer, citations, generation_time
 
 
@@ -136,9 +147,7 @@ async def generate_answers_parallel(
     Call multiple LLM models in parallel and return responses.
     Adds small delays between calls to reduce rate limiting.
     """
-    logger.info(
-        f"Generating answers from {len(models)} models in parallel: {models}"
-    )
+    logger.info(f"Generating answers from {len(models)} models in parallel: {models}")
 
     async def call_with_delay(model: str, delay: float):
         """Call model with a delayed start to space requests."""
@@ -189,10 +198,11 @@ async def generate_answers_parallel(
     return llm_responses
 
 
-def build_rag_prompt(query: str, chunks: List[Chunk]) -> str:
+def build_rag_prompt(query: str, context_chunks: List[Chunk]) -> str:
     """Build RAG prompt with context from chunks."""
     context_strings = [
-        f"Document: {c.title}, Page: {c.page}\nContent: {c.text}" for c in chunks
+        f"Document: {c.title}, Page: {c.page}\nContent: {c.text}"
+        for c in context_chunks
     ]
     context = "\n\n---\n\n".join(context_strings)
     return RAG_PROMPT_TEMPLATE.format(context=context, query=query)
@@ -237,3 +247,21 @@ def extract_citations(chunks: List[Chunk]) -> List[Citation]:
         f"No citations meet the score threshold of {threshold}. Returning empty list."
     )
     return []
+
+
+def _build_context_from_chunks(
+    query: str, chunk_list: list[Chunk]
+) -> tuple[str, Dict[str, Any]]:
+    """Build context string and citation map from chunks."""
+    context_parts = []
+    citation_map: Dict[str, Any] = {}
+    for i, c in enumerate(chunk_list, start=1):
+        context_parts.append(f"Chunk {i}: {c.text}")
+        citation_map[f"Chunk {i}"] = {
+            "title": c.title,
+            "page": c.page,
+            "url": c.url,
+            "score": c.score,
+        }
+    context = "\n\n".join(context_parts)
+    return context, citation_map

@@ -7,6 +7,7 @@ from typing import Dict
 
 class EventTypes(Enum):
     """Event types used by extraction."""
+
     DOCUMENT_DISCOVERED = "document.discovered"
     DOCUMENT_EXTRACTED = "document.extracted"
 
@@ -14,6 +15,7 @@ class EventTypes(Enum):
 @dataclass
 class DocumentDiscovered:
     """Schema for DocumentDiscovered."""
+
     eventType: str
     eventId: str
     timestamp: str
@@ -26,6 +28,7 @@ class DocumentDiscovered:
 @dataclass
 class DocumentExtracted:
     """Schema for DocumentExtracted."""
+
     eventType: str
     eventId: str
     timestamp: str

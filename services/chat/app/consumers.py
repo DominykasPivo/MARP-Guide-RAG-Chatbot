@@ -41,7 +41,9 @@ def consume_retrieval_completed_events():
                 top_score = event.get("payload", {}).get("topScore", 0.0)
 
                 logger.info(
-                    f"[TRACKING] RetrievalCompleted: queryId={query_id}, results={results_count}, latency={latency_ms}ms, topScore={top_score}"
+                    f"[TRACKING] RetrievalCompleted: queryId={query_id}, "
+                    f"results={results_count}, latency={latency_ms}ms, "
+                    f"topScore={top_score}"
                 )
 
                 ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -56,9 +58,7 @@ def consume_retrieval_completed_events():
         channel.start_consuming()
 
     except Exception as e:
-        logger.error(
-            f"Failed to start RetrievalCompleted consumer: {e}", exc_info=True
-        )
+        logger.error(f"Failed to start RetrievalCompleted consumer: {e}", exc_info=True)
 
 
 def start_consumer_thread():

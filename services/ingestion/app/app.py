@@ -77,20 +77,33 @@ async def start_discovery(background_tasks: BackgroundTasks):
 
     def discovery_job():
         try:
-            new_documents = document_discoverer.discover_and_process_documents(correlation_id)
+            new_documents = document_discoverer.discover_and_process_documents(
+                correlation_id
+            )
             events_published = 0
             for doc in new_documents:
                 if publish_document_discovered_event(event_publisher, doc):
                     events_published += 1
             logger.info(
                 "Background discovery completed.",
-                extra={"correlation_id": correlation_id, "documents": len(new_documents), "events_published": events_published},
+                extra={
+                    "correlation_id": correlation_id,
+                    "documents": len(new_documents),
+                    "events_published": events_published,
+                },
             )
         except Exception as e:
-            logger.error("Background discovery error: %s", str(e), extra={"correlation_id": correlation_id})
+            logger.error(
+                "Background discovery error: %s",
+                str(e),
+                extra={"correlation_id": correlation_id},
+            )
 
     background_tasks.add_task(discovery_job)
-    return {"message": "Document discovery started in background", "job_status": "running"}
+    return {
+        "message": "Document discovery started in background",
+        "job_status": "running",
+    }
 
 
 @app.get("/")
@@ -103,14 +116,20 @@ async def home():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    rabbitmq_status = "healthy" if event_publisher and event_publisher._ensure_connection() else "unhealthy"
+    rabbitmq_status = (
+        "healthy"
+        if event_publisher and event_publisher._ensure_connection()
+        else "unhealthy"
+    )
     status = {
         "status": "healthy" if rabbitmq_status == "healthy" else "unhealthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "service": "ingestion",
         "dependencies": {"rabbitmq": rabbitmq_status},
     }
-    return JSONResponse(content=status, status_code=200 if rabbitmq_status == "healthy" else 503)
+    return JSONResponse(
+        content=status, status_code=200 if rabbitmq_status == "healthy" else 503
+    )
 
 
 def run_discovery_background() -> None:
@@ -122,15 +141,24 @@ def run_discovery_background() -> None:
             try:
                 logger.info("Running document discovery cycle.")
                 correlation_id = str(uuid.uuid4())
-                new_documents = document_discoverer.discover_and_process_documents(correlation_id)
+                new_documents = document_discoverer.discover_and_process_documents(
+                    correlation_id
+                )
                 for doc in new_documents:
                     publish_document_discovered_event(event_publisher, doc)
                 logger.info(
                     "Discovery cycle complete.",
-                    extra={"correlation_id": correlation_id, "documents": len(new_documents)},
+                    extra={
+                        "correlation_id": correlation_id,
+                        "documents": len(new_documents),
+                    },
                 )
             except Exception as e:
-                logger.error("Periodic discovery error: %s", str(e), extra={"correlation_id": correlation_id})
+                logger.error(
+                    "Periodic discovery error: %s",
+                    str(e),
+                    extra={"correlation_id": correlation_id},
+                )
             logger.info("Sleeping for 10 minutes before next discovery cycle.")
             time.sleep(600)
 

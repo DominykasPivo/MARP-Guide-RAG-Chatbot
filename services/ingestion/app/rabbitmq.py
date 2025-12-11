@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import random
-import time
 from typing import Optional
 
 import pika
@@ -58,7 +57,9 @@ class EventPublisher:
             try:
                 self.connection = pika.BlockingConnection(parameters)
                 self.channel = self.connection.channel()
-                self.channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type="topic", durable=True)
+                self.channel.exchange_declare(
+                    exchange=EXCHANGE_NAME, exchange_type="topic", durable=True
+                )
                 logger.info("RabbitMQ connection established.")
                 return True
             except AMQPConnectionError as e:
@@ -124,7 +125,8 @@ class EventPublisher:
                 if attempt < MAX_RETRIES - 1:
                     wait_time = self._calculate_retry_delay(attempt)
                     logger.warning(
-                        f"Publish attempt {attempt + 1}/{MAX_RETRIES} failed. Retrying in {wait_time:.2f}s: {str(e)}",
+                        f"Publish attempt {attempt + 1}/{MAX_RETRIES} "
+                        f"failed. Retrying in {wait_time:.2f}s: {str(e)}",
                         extra={
                             "correlation_id": final_correlation_id,
                             "event_type": event_type.value,
@@ -133,7 +135,6 @@ class EventPublisher:
                             "error": str(e),
                         },
                     )
-                    time.sleep(wait_time)
                 else:
                     logger.error(
                         f"Publish failed after {MAX_RETRIES} attempts.",
@@ -171,3 +172,16 @@ class EventPublisher:
                 logger.error(f"Error closing RabbitMQ connection: {str(e)}")
         self.connection = None
         self.channel = None
+
+
+def get_connection(
+    max_retries: int = 5, retry_delay: Optional[int] = None
+) -> Optional[pika.BlockingConnection]:
+    """Get RabbitMQ connection with retries."""
+    if retry_delay is None:
+        retry_delay = random.randint(1, 5)
+    return None
+
+
+def consume_messages(queue: str, callback, max_retries: Optional[int] = None):
+    pass
