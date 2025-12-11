@@ -240,6 +240,10 @@ class TestQueryReceivedPublishing:
         """Test that /chat endpoint publishes QueryReceived event."""
         from unittest.mock import AsyncMock, patch
 
+        from fastapi.testclient import TestClient
+
+        from services.chat.app.app import app
+
         with (
             patch("services.chat.app.app.publish_query_received_event") as mock_publish,
             patch(
@@ -253,6 +257,8 @@ class TestQueryReceivedPublishing:
                 return_value=[],
             ),
         ):
+            client = TestClient(app)
+            client.post("/chat", json={"query": "What is MARP?", "selected_models": []})
 
             # Verify event was published
             assert mock_publish.called

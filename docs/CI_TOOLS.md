@@ -1,24 +1,7 @@
+
 # README for pyproject.toml
 
 This file (`pyproject.toml`) is the central configuration for Python tooling in this project. It defines settings for build systems, dependencies, and code quality tools.
-
-## What is Code Quality?
-
-Code quality refers to how well code meets standards for readability, maintainability, consistency, correctness, and security.
-
-### Code Quality Dimensions
-- **Readability:** Can others understand the code?
-- **Maintainability:** Can the code be easily modified?
-- **Consistency:** Does the code follow team standards?
-- **Correctness:** Does the code do what it should?
-- **Security:** Are there vulnerabilities?
-
-### Why Automate Code Quality?
-- Consistency across team members
-- Early feedback (before code review)
-- Reduces bikeshedding in reviews
-- Catches issues humans miss
-- Documents team standards
 
 ## Code Quality Tool Categories
 
@@ -61,7 +44,6 @@ Tools used in this project:
 
 ## Key Sections
 
-- **[tool.poetry] / [project]**: Project metadata, dependencies, and build configuration.
 - **[tool.flake8]**: Linting configuration for code style and error checks.
 - **[tool.black]**: Formatting configuration for automatic code style enforcement.
 - **[tool.mypy]**: Type checking configuration for static analysis.

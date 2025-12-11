@@ -84,7 +84,6 @@ def filter_top_citations(
     sorted_citations = sorted(citations, key=lambda c: c.score, reverse=True)
     num_to_return = max(min_citations, min(len(sorted_citations), top_n))
     result = sorted_citations[:num_to_return]
-
     seen = set()
     deduped = []
     for c in result:
@@ -92,6 +91,7 @@ def filter_top_citations(
         if key not in seen:
             deduped.append(c)
             seen.add(key)
+
     citation_info = [(c.title, c.page, c.score) for c in deduped]
     logger.info(
         f"✅ Returning {len(deduped)} citations after filtering and deduplication: "

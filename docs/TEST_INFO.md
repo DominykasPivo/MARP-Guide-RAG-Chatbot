@@ -142,16 +142,6 @@ pytest tests/integration/ -v
 pytest tests/integration/ --cov --cov-report=html:coverage/integration_html --cov-report=xml:coverage/integration.xml
 ```
 
-### Run Tests in Docker
-
-```bash
-# Run tests in isolated container
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-
-# Clean up after tests
-docker-compose -f docker-compose.test.yml down -v
-```
-
 ---
 
 ## Unit Tests
