@@ -1,3 +1,9 @@
+import sys
+from unittest.mock import Mock
+
+sys.modules["events"] = Mock()
+
+
 class TestMARPChatQuality:
     """Test MARP-specific chat quality requirements"""
 
