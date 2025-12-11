@@ -29,16 +29,16 @@ def docker_services(docker_compose_file):
     Start Docker Compose services for E2E tests.
     Runs once per test session.
     """
-    # Check if docker-compose is available
+    # Check if docker compose (v2) is available
     try:
-        subprocess.run(["docker-compose", "--version"], check=True, capture_output=True)
+        subprocess.run(["docker", "compose", "version"], check=True, capture_output=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        pytest.skip("docker-compose not available")
+        pytest.skip("docker compose not available")
 
     # Start services
     print("\n🚀 Starting Docker Compose services for E2E tests...")
     subprocess.run(
-        ["docker-compose", "-f", str(docker_compose_file), "up", "-d", "--build"],
+        ["docker", "compose", "-f", str(docker_compose_file), "up", "-d", "--build"],
         check=True,
     )
 
@@ -75,7 +75,7 @@ def docker_services(docker_compose_file):
     # Teardown: Stop services
     print("\n🛑 Stopping Docker Compose services...")
     subprocess.run(
-        ["docker-compose", "-f", str(docker_compose_file), "down", "-v"],
+        ["docker", "compose", "-f", str(docker_compose_file), "down", "-v"],
         check=False,
     )
 
