@@ -1,140 +1,222 @@
-import os
-import time
-import json
-import uuid
 import logging
-from flask import Flask, jsonify, request
-import pika
+import os
+import sys
+import uuid
+from typing import Optional
+
 import httpx
-from models import ChatRequest, ChatResponse, Chunk, Citation
-from llm_rag_helpers import generate_answer_with_citations
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
+from consumers import start_consumer_thread
+from events import publish_query_received_event
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+    RedirectResponse,
 )
-logger = logging.getLogger(__name__)
+from fastapi.staticfiles import StaticFiles
+from llm_rag_helpers import generate_answers_parallel
+from models import ChatResponse, Chunk, Citation, LLMResponse
+from pydantic import BaseModel
 
-app = Flask(__name__)
 
-# Environment variables
-RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
-RABBITMQ_URL = os.getenv('RABBITMQ_URL', f'amqp://guest:guest@{RABBITMQ_HOST}:5672/')
-RETRIEVAL_SERVICE_URL = os.getenv('RETRIEVAL_SERVICE_URL', 'http://retrieval-service:8000')
+class ChatRequestModel(BaseModel):
+    query: str
+    selected_models: Optional[list[str]] = None
 
-def publish_query_event(query: str, correlation_id: str):
-    """✅ PUBLISH queryreceived EVENT - THIS IS THE KEY CHANGE"""
-    try:
-        logger.info(f"🔌 Publishing query event to RabbitMQ")
-        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
-        channel = connection.channel()
-        
-        channel.exchange_declare(
-            exchange='document_events',
-            exchange_type='topic',
-            durable=True
-        )
-        
-        event = {
-            'query': query,
-            'correlation_id': correlation_id,
-            'timestamp': time.time()
-        }
-        
-        channel.basic_publish(
-            exchange='document_events',
-            routing_key='queryreceived',
-            body=json.dumps(event),
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # make message persistent
-            )
-        )
-        
-        logger.info(f"📤 Published queryreceived event: {correlation_id}")
-        connection.close()
-        
-    except Exception as e:
-        logger.error(f"❌ Error publishing query event: {str(e)}", exc_info=True)
 
-def get_chunks_via_http(query: str):
-    """Get chunks from retrieval service via HTTP (fallback method)"""
-    try:
-        logger.info(f"🔍 Querying retrieval service via HTTP: {RETRIEVAL_SERVICE_URL}")
-        
-        response = httpx.post(
-            f"{RETRIEVAL_SERVICE_URL}/query",
-            json={"query": query},
-            timeout=30.0
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            chunks = data.get('chunks', [])
-            logger.info(f"✅ Retrieved {len(chunks)} chunks via HTTP")
-            return chunks
-        else:
-            logger.error(f"❌ HTTP request failed: {response.status_code}")
-            return []
-            
-    except Exception as e:
-        logger.error(f"❌ Error getting chunks via HTTP: {str(e)}", exc_info=True)
+logger = logging.getLogger("chat")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    stream=sys.stdout,
+)
+
+app = FastAPI(title="MARP Chat Service", version="1.0.0")
+
+static_dir = "/app/static"
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    logger.info(f"Static files mounted from {static_dir}")
+else:
+    logger.warning(f"Static directory not found: {static_dir}")
+
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", f"amqp://guest:guest@{RABBITMQ_HOST}:5672/")
+RETRIEVAL_SERVICE_URL = os.getenv("RETRIEVAL_SERVICE_URL", "http://retrieval:8000")
+API_TIMEOUT = int(os.getenv("API_TIMEOUT", "30"))
+
+LLM_MODELS = os.getenv(
+    "LLM_MODELS",
+    "google/gemma-2-9b-it:free,meta-llama/llama-3.2-3b-instruct:free,"
+    "microsoft/phi-3-mini-128k-instruct:free",
+).split(",")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+
+_models_preview = [m.strip() for m in LLM_MODELS if m.strip()]
+logger.info(f"Configured LLM models: {_models_preview}")
+if not OPENROUTER_API_KEY:
+    logger.warning("OPENROUTER_API_KEY is not set; LLM calls will fail.")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background event consumers on app startup."""
+    logger.info("Starting Chat Service")
+    start_consumer_thread()
+    logger.info("Chat Service ready")
+
+
+def filter_top_citations(
+    citations: list[Citation], top_n: int = 3, min_citations: int = 2
+) -> list[Citation]:
+    """Filter and deduplicate citations."""
+    if not citations:
+        logger.warning("No citations to filter")
         return []
 
-@app.route('/health', methods=['GET'])
-def health():
-    """Health check endpoint"""
-    logger.info("Health check requested")
-    return jsonify({"status": "healthy"}), 200
+    for c in citations:
+        if hasattr(c, "page") and c.page is not None:
+            c.page = max(0, c.page - 1)
 
-@app.route('/chat', methods=['POST'])
-def chat():
-    """Main chat endpoint"""
+    logger.info(
+        f"Filtering {len(citations)} citations "
+        f"(top_n={top_n}, min_citations={min_citations})"
+    )
+    sorted_citations = sorted(citations, key=lambda c: c.score, reverse=True)
+    num_to_return = max(min_citations, min(len(sorted_citations), top_n))
+    result = sorted_citations[:num_to_return]
+    seen = set()
+    deduped = []
+    for c in result:
+        key = (c.title, c.page)
+        if key not in seen:
+            deduped.append(c)
+            seen.add(key)
+    citation_info = [(c.title, c.page, c.score) for c in deduped]
+    logger.info(
+        f"Returning {len(deduped)} citations after filtering and "
+        f"deduplication: {citation_info}"
+    )
+    return deduped
+
+
+async def get_chunks_via_http_async(query: str):
+    """Get chunks from retrieval service via HTTP."""
     try:
-        data = request.get_json()
-        query = data.get('query')
-        
-        if not query:
-            return jsonify({"error": "Query is required"}), 400
-        
-        correlation_id = str(uuid.uuid4())
-        logger.info(f"💬 Received chat request: '{query}' (correlation_id: {correlation_id})")
-        
-        # ✅ PUBLISH queryreceived EVENT - THIS IS THE KEY ADDITION
-        publish_query_event(query, correlation_id)
-        
-        # Get chunks via HTTP (immediate response approach)
-        logger.info("📊 Fetching chunks from retrieval service...")
-        chunks_data = get_chunks_via_http(query)
-        
-        if not chunks_data:
-            logger.warning("⚠️ No chunks found for query")
-            return jsonify({
-                "answer": "I couldn't find any relevant information to answer your question.",
-                "citations": []
-            }), 200
-        
-        # Convert to Chunk objects
-        chunks = [Chunk(**chunk) for chunk in chunks_data]
-        logger.info(f"✅ Processing {len(chunks)} chunks")
-        
-        # Generate answer with citations using LLM
-        logger.info("🤖 Generating answer with LLM...")
-        answer, citations = generate_answer_with_citations(query, chunks)
-        
-        logger.info(f"✅ Generated answer with {len(citations)} citations")
-        
-        response = ChatResponse(
-            answer=answer,
-            citations=citations
-        )
-        
-        return jsonify(response.dict()), 200
-        
+        logger.info(f"Querying retrieval service via HTTP: {RETRIEVAL_SERVICE_URL}")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{RETRIEVAL_SERVICE_URL}/query",
+                json={"query": query},
+                timeout=float(API_TIMEOUT),
+            )
+        if response.status_code == 200:
+            data = response.json()
+            chunks = data.get("chunks", [])
+            logger.info(f"Retrieved {len(chunks)} chunks via HTTP (async)")
+            return chunks
+        else:
+            logger.error(f"HTTP request failed: {response.status_code}")
+            return []
     except Exception as e:
-        logger.error(f"❌ Error in chat endpoint: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error getting chunks via HTTP (async): {str(e)}", exc_info=True)
+        return []
 
-if __name__ == '__main__':
-    logger.info("🚀 Starting Chat Service on port 8000")
-    app.run(host='0.0.0.0', port=8000)
+
+@app.get("/")
+async def root():
+    """Redirect to auth page."""
+    return RedirectResponse(url="/static/auth.html")
+
+
+@app.get("/chat-ui")
+async def chat_ui():
+    """Serve the chat UI page."""
+    static_file = "/app/static/index.html"
+    if os.path.exists(static_file):
+        return FileResponse(static_file)
+    return {"message": "Chat UI not available. " "Access /chat endpoint directly."}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    logger.info("Health check requested")
+    return {"status": "healthy"}
+
+
+@app.get("/models")
+async def get_available_models():
+    """Get list of available LLM models."""
+    models = [m.strip() for m in LLM_MODELS if m.strip()]
+    return {"models": models}
+
+
+@app.post("/chat")
+async def chat(request: Request, chat_request: ChatRequestModel):
+    """Main chat endpoint (async)."""
+    try:
+        query = chat_request.query
+        if not query:
+            raise HTTPException(status_code=400, detail="Query is required")
+
+        correlation_id = str(uuid.uuid4())
+        logger.info(
+            f"Received chat request: '{query}' " f"(correlation_id: {correlation_id})"
+        )
+
+        models_to_use = (
+            chat_request.selected_models if chat_request.selected_models else LLM_MODELS
+        )
+        models_to_use = [m.strip() for m in models_to_use if m.strip()]
+
+        if not models_to_use:
+            raise HTTPException(status_code=400, detail="No valid models selected")
+
+        logger.info(f"Using models: {models_to_use}")
+
+        publish_query_received_event(
+            query_text=query, query_id=correlation_id, user_id="anonymous"
+        )
+
+        logger.info("Fetching chunks from retrieval service (async)")
+        chunks_data = await get_chunks_via_http_async(query)
+
+        if not chunks_data:
+            logger.warning("No chunks found for query; returning fallback response")
+            fallback_responses = [
+                LLMResponse(
+                    model=m.strip(),
+                    answer=(
+                        "I couldn't find any relevant n\
+                        information to answer your question."
+                    ),
+                    citations=[],
+                    generation_time=0.0,
+                )
+                for m in models_to_use
+            ]
+            response = ChatResponse(query=query, responses=fallback_responses)
+            return JSONResponse(status_code=200, content=response.dict())
+
+        chunks = [Chunk(**chunk) for chunk in chunks_data]
+        logger.info(f"Processing {len(chunks)} chunks")
+
+        logger.info(f"Generating answers from {len(models_to_use)} models in parallel")
+        llm_responses = await generate_answers_parallel(
+            query, chunks, api_key=OPENROUTER_API_KEY, models=models_to_use
+        )
+
+        for response in llm_responses:
+            response.citations = filter_top_citations(response.citations, top_n=3)
+
+        logger.info(f"Generated {len(llm_responses)} responses with filtered citations")
+
+        response = ChatResponse(query=query, responses=llm_responses)
+
+        return JSONResponse(status_code=200, content=response.dict())
+
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
